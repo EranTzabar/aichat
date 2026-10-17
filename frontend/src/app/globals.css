@@ -141,3 +141,12 @@
 .markdown td, .markdown th { border: 1px solid var(--border); padding: 0.15rem 0.4rem; }
 .inline-first > .markdown { display: inline; }
 .inline-first > .markdown > p:first-child { display: inline; }
+
+/* The site is dark-only: tell the browser, so native controls (dropdown lists, file pickers,
+   scrollbars) are drawn dark too instead of light with unreadable light text. */
+html { color-scheme: dark; }
+select option,
+select optgroup {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+}

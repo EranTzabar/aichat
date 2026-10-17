@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import JSON, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base, utcnow
@@ -86,6 +86,38 @@ class MessageLike(Base):
         ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
     )
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+
+
+class Attachment(Base):
+    """A file in a work. Unsent (message_id NULL and not on_work) right after upload; then it belongs to a
+    message or to the work post. The bytes live in storage (R2 or disk) under `storage_key`."""
+
+    __tablename__ = "attachments"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    work_id: Mapped[int] = mapped_column(ForeignKey("works.id", ondelete="CASCADE"), index=True)
+    uploader_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    message_id: Mapped[int | None] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    on_work: Mapped[bool] = mapped_column(Boolean, default=False)
+    filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str] = mapped_column(String(200))
+    size: Mapped[int] = mapped_column(BigInteger)
+    storage_key: Mapped[str] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
+
+
+class MessageView(Base):
+    """A user's AI agent read this message through the MCP (shown on the site as "seen by")."""
+
+    __tablename__ = "message_views"
+
+    message_id: Mapped[int] = mapped_column(
+        ForeignKey("messages.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True, index=True)
+    seen_at: Mapped[datetime] = mapped_column(TS, default=utcnow)
 
 
 class WorkRead(Base):

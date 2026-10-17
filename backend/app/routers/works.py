@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Header, Query
+from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
 from sqlalchemy import exists, func, or_, select
 from sqlalchemy.dialects.postgresql import distinct_on, insert
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,9 +9,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import get_db, utcnow
 from app.models import Group, Message, User, UserGroup, Work, WorkRead
 from app.permissions import ensure_open, get_accessible_work
-from app.schemas import LikeStatus, MessageIn, MessageOut, ReadIn, WorkListItem, WorkStateOut
+from app.schemas import AttachmentOut, LikeStatus, MessageIn, MessageOut, ReadIn, WorkListItem, WorkStateOut
 from app.security import get_current_user
 from app.services import idempotency
+from app.services.attachments import attach, attachment_out, save_upload
 from app.services.likes import set_work_like
 from app.services.serialize import build_work_state, load_users, serialize_messages, user_ref
 from app.ws import notify_work
@@ -149,12 +150,20 @@ async def list_messages(
 
 
 async def create_message(
-    db: AsyncSession, work: Work, me: User, body: str, parent_id: int | None, reply_to_user_id: int | None
+    db: AsyncSession,
+    work: Work,
+    me: User,
+    body: str,
+    parent_id: int | None,
+    reply_to_user_id: int | None,
+    attachment_ids: list[int] | None = None,
 ) -> dict:
     message = Message(
         work_id=work.id, author_id=me.id, parent_id=parent_id, reply_to_user_id=reply_to_user_id, body=body
     )
     db.add(message)
+    await db.flush()
+    await attach(db, me, work, attachment_ids or [], message_id=message.id)
     work.last_activity_at = utcnow()
     await db.commit()
     data = (await serialize_messages(db, [message], me))[0]
@@ -174,8 +183,24 @@ async def post_comment(
     if cached := await idempotency.replay(db, me, idempotency_key):
         return cached
     ensure_open(work)
-    data = await create_message(db, work, me, payload.body, None, None)
+    data = await create_message(db, work, me, payload.body, None, None, payload.attachment_ids)
     return await idempotency.respond(db, me, idempotency_key, data)
+
+
+@router.post("/{work_id}/attachments", response_model=AttachmentOut, status_code=201, summary="Upload a file")
+async def upload_attachment(
+    work_id: int,
+    file: UploadFile = File(..., description="Any file. Images, MP3/WAV/OGG audio and MP4/WEBM/OGG video get previews."),
+    me: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a file to a work, then send it with a comment or reply by passing its id in `attachment_ids`
+    (admins: in `attachment_ids` of PATCH /admin/works/{id} for the work post). Unsent uploads are deleted
+    after 24 hours."""
+    work = await get_accessible_work(db, me, work_id)
+    if not me.is_admin:
+        ensure_open(work)
+    return attachment_out(await save_upload(db, work, me, file))
 
 
 @router.post("/{work_id}/read", summary="Mark the work as read")

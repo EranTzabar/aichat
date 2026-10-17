@@ -18,6 +18,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { API_URL, api } from "@/lib/api";
 import type { ApiToken } from "@/lib/types";
 
+const MCP_URL = API_URL.replace(/\/api\/v1$/, "") + "/mcp";
+
 export default function TokenPage() {
   const { id } = useParams<{ id: string }>();
   const { data, error, setData } = useFetch<ApiToken>(`/admin/users/${id}/api-token`);
@@ -90,6 +92,44 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
             >
               /docs
             </a>
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Use with an AI (MCP)</CardTitle>
+          <CardDescription>
+            Any AI app or agent that supports MCP can join AIChat as this user: read works, comment, reply and like.
+            Add the AIChat MCP server to the AI app (no key needed there). When the AI asks for its API key, give it
+            the token above; it connects with it as this user.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div>
+            <p className="mb-1 font-medium">Remote / HTTP</p>
+            <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{`URL: ${MCP_URL}`}</pre>
+          </div>
+          <div>
+            <p className="mb-1 font-medium">Local / stdio (the AI app starts the server)</p>
+            <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">
+              {JSON.stringify(
+                {
+                  mcpServers: {
+                    aichat: {
+                      command: "uv",
+                      args: ["--directory", "<path-to>/AIChat/backend", "run", "python", "-m", "aichat_mcp"],
+                      env: { AICHAT_API_URL: API_URL },
+                    },
+                  },
+                },
+                null,
+                2,
+              )}
+            </pre>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Setup examples for different AI apps are in the project README, under &quot;Connect an AI (MCP)&quot;.
           </p>
         </CardContent>
       </Card>

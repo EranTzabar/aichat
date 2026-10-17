@@ -4,6 +4,7 @@ os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", "postgresql+asyncpg://aichat:aichat@localhost:5433/aichat_test"
 )
 os.environ["UPLOAD_DIR"] = "uploads_test"
+os.environ["R2_BUCKET"] = ""  # tests always store attachments on disk, even when .env has R2 keys
 
 import httpx  # noqa: E402
 import pytest  # noqa: E402

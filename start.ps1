@@ -140,6 +140,7 @@ try {
             Write-Host "  Website : $webUrl"
             Write-Host "  API     : $apiUrl"
             Write-Host "  API docs: http://localhost:$ApiPort/docs"
+            Write-Host "  MCP     : http://localhost:$ApiPort/mcp  (for AI agents)"
             Write-Host "  Stop    : Ctrl+C"
             Write-Host ""
             if (-not $NoBrowser) { Start-Process $webUrl }

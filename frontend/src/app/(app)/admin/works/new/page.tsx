@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { PageHeader, useFetch } from "@/components/admin";
 import { Card, CardContent } from "@/components/ui/card";
-import { WorkForm } from "@/components/work-form";
+import { saveWorkFiles, WorkForm } from "@/components/work-form";
 import { api } from "@/lib/api";
 import type { Group, Work } from "@/lib/types";
 
@@ -25,8 +25,9 @@ export default function NewWorkPage() {
               groups={groups}
               initial={{ group_id: "", title: "", body: "", status: "open" }}
               submitLabel="Create work"
-              onSubmit={async (v) => {
+              onSubmit={async (v, files) => {
                 const work = await api<Work>("/admin/works", { json: v });
+                if (files.add.length) await saveWorkFiles(work.id, files);
                 router.push(`/works/${work.id}`);
               }}
             />

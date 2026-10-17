@@ -62,15 +62,21 @@ async def test_work_state_shape_and_reply_threading(client, world):
     c = (await client.post(f"/works/{world.work_id}/messages", json={"body": "comment"}, headers=dana)).json()
     r1 = (await client.post(f"/messages/{c['id']}/replies", json={"body": "reply 1"}, headers=yoni)).json()
     assert r1["parent_id"] == c["id"] and r1["reply_to"]["id"] == world.dana["id"]
-    # reply to a reply -> attaches to the same top-level comment, tags the reply's author
+    # reply to a reply -> third level under that reply, tags the reply's author
     r2 = (await client.post(f"/messages/{r1['id']}/replies", json={"body": "reply 2"}, headers=dana)).json()
-    assert r2["parent_id"] == c["id"] and r2["reply_to"]["id"] == world.yoni["id"]
+    assert r2["parent_id"] == r1["id"] and r2["reply_to"]["id"] == world.yoni["id"]
+    # reply on the third level -> stays on the third level, under the same reply
+    r3 = (await client.post(f"/messages/{r2['id']}/replies", json={"body": "reply 3"}, headers=yoni)).json()
+    assert r3["parent_id"] == r1["id"] and r3["reply_to"]["id"] == world.dana["id"]
 
     state = (await client.get(f"/works/{world.work_id}", headers=dana)).json()
     assert state["work"]["title"] == "Plan Q4" and state["work"]["status"] == "open"
     assert "server_time" in state
     assert len(state["messages"]) == 1
-    assert [r["id"] for r in state["messages"][0]["replies"]] == [r1["id"], r2["id"]]
+    [reply] = state["messages"][0]["replies"]
+    assert reply["id"] == r1["id"]
+    assert [r["id"] for r in reply["replies"]] == [r2["id"], r3["id"]]
+    assert reply["replies"][0]["replies"] is None
     assert {p["id"] for p in state["participants"]} == {world.dana["id"], world.yoni["id"]}
     assert "avatar" not in str(state).lower()
     assert set(state["messages"][0]["author"]) == {"id", "username", "display_name"}
@@ -195,3 +201,26 @@ async def test_broadcast_reaches_group_members_only(client, world):
     finally:
         for name, sock in sockets.items():
             manager.disconnect(getattr(world, name)["id"], sock)
+
+
+async def test_seen_by_is_recorded_only_through_me_seen(client, world):
+    dana, yoni, omer = auth(world.dana["token"]), auth(world.yoni["token"]), auth(world.omer["token"])
+    admin = auth(world.admin["token"])
+    theirs = (await client.post(f"/works/{world.work_id}/messages", json={"body": "yoni's"}, headers=yoni)).json()
+    mine = (await client.post(f"/works/{world.work_id}/messages", json={"body": "dana's"}, headers=dana)).json()
+    assert theirs["seen_by"] == []
+
+    # loading the work (as the website does) marks nothing
+    await client.get(f"/works/{world.work_id}", headers=dana)
+    state = (await client.get(f"/works/{world.work_id}", headers=yoni)).json()
+    assert all(m["seen_by"] == [] for m in state["messages"])
+
+    r = await client.post("/me/seen", json={"message_ids": [theirs["id"], mine["id"]]}, headers=dana)
+    assert r.json() == {"recorded": 1}  # own message ignored
+    r = await client.post("/me/seen", json={"message_ids": [theirs["id"]]}, headers=dana)
+    assert r.json() == {"recorded": 0}  # already seen
+    assert (await client.post("/me/seen", json={"message_ids": [theirs["id"]]}, headers=admin)).json() == {"recorded": 0}
+    assert (await client.post("/me/seen", json={"message_ids": [theirs["id"]]}, headers=omer)).json() == {"recorded": 0}
+
+    msg = (await client.get(f"/messages/{theirs['id']}", headers=yoni)).json()
+    assert [u["id"] for u in msg["seen_by"]] == [world.dana["id"]]

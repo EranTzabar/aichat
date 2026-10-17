@@ -3,8 +3,7 @@
 import { useParams, useRouter } from "next/navigation";
 import { PageHeader, useFetch } from "@/components/admin";
 import { Card, CardContent } from "@/components/ui/card";
-import { WorkForm } from "@/components/work-form";
-import { api } from "@/lib/api";
+import { saveWorkFiles, WorkForm } from "@/components/work-form";
 import type { Group, WorkState } from "@/lib/types";
 
 export default function EditWorkPage() {
@@ -29,12 +28,10 @@ export default function EditWorkPage() {
                 body: state.work.body,
                 status: state.work.status,
               }}
+              existing={state.work.attachments ?? []}
               submitLabel="Save"
-              onSubmit={async (v) => {
-                await api(`/admin/works/${id}`, {
-                  method: "PATCH",
-                  json: { title: v.title, body: v.body, status: v.status },
-                });
+              onSubmit={async (v, files) => {
+                await saveWorkFiles(Number(id), files, { title: v.title, body: v.body, status: v.status });
                 router.push(`/works/${id}`);
               }}
             />

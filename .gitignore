@@ -8,3 +8,4 @@ node_modules/
 .pytest_cache/
 backend/uploads_test/
 .logs/
+aichat_downloads/

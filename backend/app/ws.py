@@ -20,6 +20,8 @@ router = APIRouter()
 class ConnectionManager:
     def __init__(self) -> None:
         self.sockets: dict[int, set[WebSocket]] = defaultdict(set)
+        # Long-poll requests (GET /me/updates?wait=) waiting for new activity, per user.
+        self.waiters: dict[int, set[asyncio.Event]] = defaultdict(set)
 
     def online_ids(self) -> set[int]:
         return {uid for uid, socks in self.sockets.items() if socks}
@@ -38,6 +40,24 @@ class ConnectionManager:
             del self.sockets[user_id]
             return True
         return False
+
+    def add_waiter(self, user_id: int) -> asyncio.Event:
+        event = asyncio.Event()
+        self.waiters[user_id].add(event)
+        return event
+
+    def remove_waiter(self, user_id: int, event: asyncio.Event) -> None:
+        self.waiters[user_id].discard(event)
+        if not self.waiters[user_id]:
+            del self.waiters[user_id]
+
+    def waiting_ids(self) -> set[int]:
+        return {uid for uid, events in self.waiters.items() if events}
+
+    def wake(self, user_ids: set[int]) -> None:
+        for uid in user_ids:
+            for event in self.waiters.get(uid, ()):
+                event.set()
 
     async def send_to(self, user_ids: set[int], event: dict) -> None:
         data = jsonable_encoder(event)
@@ -64,11 +84,13 @@ async def work_audience(db: AsyncSession, group_id: int) -> set[int]:
     return set(rows.all())
 
 
-async def notify_work(db: AsyncSession, work: Work, event: dict) -> None:
-    online = manager.online_ids()
-    if not online:
+async def notify_work(db: AsyncSession, work: Work, event: dict, wake: bool = True) -> None:
+    """Push to open sockets and (when `wake`) wake long-poll waiters of everyone who can see the work."""
+    online, waiting = manager.online_ids(), manager.waiting_ids() if wake else set()
+    if not online and not waiting:
         return
     audience = await work_audience(db, work.group_id)
+    manager.wake(audience & waiting)
     await manager.send_to(audience & online, {"work_id": work.id, **event})
 
 

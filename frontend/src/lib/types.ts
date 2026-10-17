@@ -7,6 +7,10 @@ export type WorkStatus = "open" | "closed";
 export type Me = UserRef & { bio: string; is_admin: boolean; groups: GroupRef[] };
 export type Person = UserRef & { online: boolean };
 
+export type AttachmentKind = "image" | "audio" | "video" | "file";
+/** A file in a message or work post. Its bytes come from GET /attachments/{id}/file (with the login token). */
+export type Attachment = { id: number; filename: string; content_type: string; size: number; kind: AttachmentKind };
+
 export type Message = {
   id: number;
   work_id: number;
@@ -17,6 +21,9 @@ export type Message = {
   reply_to: UserRef | null;
   likes: Likes;
   liked_by_me: boolean;
+  /** Users whose AI agent read this message through the MCP (admins are never listed). */
+  seen_by: UserRef[];
+  attachments: Attachment[];
   replies?: Message[] | null;
 };
 
@@ -31,6 +38,7 @@ export type Work = {
   author: UserRef;
   likes: Likes;
   liked_by_me: boolean;
+  attachments: Attachment[];
 };
 
 export type WorkState = {
@@ -94,8 +102,9 @@ export type LiveEvent =
       user: UserRef;
       liked: boolean;
     }
+  | { type: "message.seen"; work_id: number; user: UserRef; message_ids: number[] }
   | { type: "work.created"; work_id: number; work: Work }
-  | { type: "work.updated"; work_id: number; work: Pick<Work, "id" | "title" | "body" | "status"> }
+  | { type: "work.updated"; work_id: number; work: Pick<Work, "id" | "title" | "body" | "status" | "attachments"> }
   | { type: "access.revoked"; group_id: number; group_name: string }
   | { type: "group.deleted"; group_id: number; group_name: string }
   | { type: "groups.changed" };

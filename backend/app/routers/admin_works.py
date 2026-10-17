@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import get_db
 from app.errors import not_found
-from app.models import Group, User, Work
+from app.models import Attachment, Group, User, Work
 from app.schemas import WorkCreate, WorkOut, WorkUpdate
 from app.security import require_admin
+from app.services.attachments import attach, remove
 from app.services.serialize import serialize_work
 from app.ws import notify_work
 
@@ -31,10 +33,22 @@ async def update_work(
     work = await db.get(Work, work_id)
     if work is None:
         raise not_found("Work", work_id)
-    for key, value in payload.model_dump(exclude_unset=True).items():
+    fields = payload.model_dump(exclude_unset=True, exclude={"attachment_ids", "remove_attachment_ids"})
+    for key, value in fields.items():
         if value is not None:
             setattr(work, key, value)
+    await attach(db, admin, work, payload.attachment_ids, on_work=True)
+    if payload.remove_attachment_ids:
+        doomed = await db.scalars(
+            select(Attachment).where(
+                Attachment.id.in_(payload.remove_attachment_ids),
+                Attachment.work_id == work.id,
+                Attachment.on_work.is_(True),
+            )
+        )
+        await remove(db, list(doomed))
     await db.commit()
     data = await serialize_work(db, work, admin)
-    await notify_work(db, work, {"type": "work.updated", "work": {k: data[k] for k in ("id", "title", "body", "status")}})
+    keys = ("id", "title", "body", "status", "attachments")
+    await notify_work(db, work, {"type": "work.updated", "work": {k: data[k] for k in keys}})
     return data

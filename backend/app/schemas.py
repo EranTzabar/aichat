@@ -1,7 +1,7 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from app.config import settings
 
@@ -33,6 +33,22 @@ class LikeStatus(BaseModel):
 
 
 # ---------- messages & works ----------
+class AttachmentOut(BaseModel):
+    id: int = Field(description="Download the file with GET /attachments/{id}/file (same Bearer token).")
+    filename: str
+    content_type: str
+    size: int = Field(description="Bytes")
+    kind: Literal["image", "audio", "video", "file"] = Field(
+        description="image / audio / video are shown as previews on the website; file as a download card."
+    )
+
+
+class AttachmentInfoOut(AttachmentOut):
+    work_id: int
+    message_id: int | None = Field(description="The message it belongs to; null if on the work post or unsent.")
+    on_work: bool = Field(description="Attached to the work post itself.")
+
+
 class MessageOut(BaseModel):
     id: int
     work_id: int
@@ -43,6 +59,11 @@ class MessageOut(BaseModel):
     reply_to: UserRef | None
     likes: LikesOut
     liked_by_me: bool
+    seen_by: list[UserRef] = Field(
+        default_factory=list,
+        description="Users whose AI agent read this message through the MCP, first seen first. Admins are not listed.",
+    )
+    attachments: list[AttachmentOut] = Field(default_factory=list)
     replies: list["MessageOut"] | None = None
 
 
@@ -61,6 +82,7 @@ class WorkOut(BaseModel):
     author: UserRef
     likes: LikesOut
     liked_by_me: bool
+    attachments: list[AttachmentOut] = Field(default_factory=list, description="Files attached to the work post.")
 
 
 class WorkStateOut(BaseModel):
@@ -92,17 +114,25 @@ class WorkListItem(BaseModel):
 
 
 def _check_body(v: str) -> str:
-    if not v.strip():
-        raise ValueError("must not be empty")
     if len(v) > settings.max_message_length:
         raise ValueError(f"must be at most {settings.max_message_length} characters")
     return v
 
 
 class MessageIn(BaseModel):
-    body: str = Field(description="Markdown text")
+    body: str = Field(default="", description="Markdown text. May be empty when files are attached.")
+    attachment_ids: list[int] = Field(
+        default_factory=list,
+        description="Ids of files you uploaded to this work with POST /works/{id}/attachments (each used once).",
+    )
 
     _v = field_validator("body")(_check_body)
+
+    @model_validator(mode="after")
+    def _text_or_files(self):
+        if not self.body.strip() and not self.attachment_ids:
+            raise ValueError("Write a message or attach a file.")
+        return self
 
 
 class ReplyIn(MessageIn):
@@ -113,6 +143,42 @@ class ReplyIn(MessageIn):
 
 class ReadIn(BaseModel):
     last_read_message_id: int | None = None
+
+
+class SeenIn(BaseModel):
+    message_ids: list[int] = Field(max_length=500, description="Ids of the messages the AI was shown.")
+
+
+class SeenOut(BaseModel):
+    recorded: int = Field(description="How many messages were newly marked as seen by you.")
+
+
+# ---------- updates (what's new) ----------
+class UpdateMessageOut(MessageOut):
+    work_title: str
+    is_reply_to_me: bool
+    mentions_me: bool = Field(description="The text names me (@username, my name or first name).")
+    in_my_thread: bool = Field(description="A reply (at any level) under a comment I wrote or replied to.")
+
+
+class NewWorkOut(BaseModel):
+    id: int
+    title: str
+    group_id: int
+    group_name: str
+    status: Literal["open", "closed"]
+    created_at: datetime
+    author: UserRef
+    body_preview: str
+
+
+class UpdatesOut(BaseModel):
+    cursor: str = Field(description="Pass back as `cursor` next time to get only newer activity.")
+    new_works: list[NewWorkOut]
+    messages: list[UpdateMessageOut]
+    unread_works: list[WorkListItem] = Field(
+        description="Only filled on the first call (no cursor): works that currently have unread messages."
+    )
 
 
 # ---------- me & people ----------
@@ -217,3 +283,9 @@ class WorkUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     body: str | None = Field(default=None, max_length=settings.max_message_length)
     status: Literal["open", "closed"] | None = None
+    attachment_ids: list[int] = Field(
+        default_factory=list, description="Uploads (POST /works/{id}/attachments) to add to the work post."
+    )
+    remove_attachment_ids: list[int] = Field(
+        default_factory=list, description="Files of the work post to delete."
+    )
