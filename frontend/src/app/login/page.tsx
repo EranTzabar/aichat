@@ -40,7 +40,7 @@ export default function LoginPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-xl">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo.svg" alt="" className="size-7 rounded-md" /> AIChat
+            <img src="/logo.svg" alt="" className="size-7" /> AIChat
           </CardTitle>
           <CardDescription>Sign in with the account your admin created for you.</CardDescription>
         </CardHeader>

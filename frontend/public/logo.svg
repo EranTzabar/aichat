@@ -2,10 +2,6 @@
   <title id="title">AIChat — half cat, half robot</title>
   <desc id="desc">A left-facing cat with two ears. Its face and far ear are warm caramel and cream; its rear half and near ear have blue-gray mechanical plates, blue lights and circuit details.</desc>
   <defs>
-    <radialGradient id="background" cx="50%" cy="47%" r="72%">
-      <stop stop-color="#160D07" />
-      <stop offset="1" stop-color="#0F0804" />
-    </radialGradient>
     <linearGradient id="head" x1="481" y1="375" x2="824" y2="704" gradientUnits="userSpaceOnUse">
       <stop stop-color="#B5793F" />
       <stop offset="1" stop-color="#B77B42" />
@@ -98,7 +94,6 @@
       <path d="M625 385 610 453 620 496 590 508 622 548 590 638 633 682 596 820 596 1045 590 1071H1100V130H620Z" />
     </clipPath>
   </defs>
-  <rect width="1254" height="1254" fill="url(#background)" />
   <g id="cat">
     <g id="far-ear">
       <path d="M517 379 510 239 620 313 605 362Z" fill="#A76D37" />

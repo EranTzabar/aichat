@@ -129,7 +129,7 @@ function LeftNav() {
     <nav className="flex h-full flex-col gap-1 p-3">
       <Link href="/" className="mb-3 flex items-center gap-2 px-3 py-1 text-lg font-bold">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.svg" alt="" className="size-7 rounded-md" /> AIChat
+        <img src="/logo.svg" alt="" className="size-7" /> AIChat
       </Link>
       {!inAdmin && <SearchBox />}
       {inAdmin ? (
