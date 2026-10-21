@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Avatar } from "@/components/avatar";
 import { MENTION_CLASS } from "@/components/mention";
-import { indexPeople, resolveTag, tag, TAG_RE, usePeople } from "@/lib/people";
+import { findTags, indexPeople, resolveTag, tag, TAG_RE, usePeople } from "@/lib/people";
 import type { Person, UserRef } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -54,7 +54,7 @@ function render(root: HTMLElement, value: string, find: (id?: string, name?: str
       if (line) root.append(document.createTextNode(line));
     });
   let last = 0;
-  for (const m of value.matchAll(TAG_RE)) {
+  for (const m of findTags(value)) {
     const user = find(m[1], m[2]);
     // Only an exact @username becomes a chip here (not "@dana." with its dot).
     if (!user || (m[2] && m[2].toLowerCase() !== user.username.toLowerCase())) continue;

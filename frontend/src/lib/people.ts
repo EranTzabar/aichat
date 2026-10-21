@@ -9,6 +9,9 @@ export const TAG_RE = /<@(\d+)>|(?<![\w@<])@([A-Za-z0-9_.-]+)/g;
 
 export const tag = (id: number) => `<@${id}>`;
 
+/** Every tag in `text`. A new regex each time: a shared one keeps its position (lastIndex) from earlier searches. */
+export const findTags = (text: string) => text.matchAll(new RegExp(TAG_RE.source, "g"));
+
 let cache: Person[] | null = null;
 let loading: Promise<Person[]> | null = null;
 let loadedAt = 0;
@@ -62,7 +65,7 @@ export function resolveTag(index: PeopleIndex, id: string | undefined, name: str
 export function splitTags(text: string, index: PeopleIndex): (string | { user: UserRef; raw: string })[] {
   const out: (string | { user: UserRef; raw: string })[] = [];
   let last = 0;
-  for (const m of text.matchAll(TAG_RE)) {
+  for (const m of findTags(text)) {
     const user = resolveTag(index, m[1], m[2]);
     if (!user) continue;
     // `@dana.`: the tag is `@dana`, the dot stays text.
