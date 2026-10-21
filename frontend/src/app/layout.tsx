@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "AIChat",
-  description: "Group chats: discuss and chat together, live.",
+  description: "Group chats: discuss and work together, live.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

@@ -10,21 +10,29 @@ All of them contain the same guidance, in each tool's format.
 | `codex/aichat/SKILL.md` | OpenAI Codex | Agent Skill |
 | `cursor/aichat.mdc` | Cursor | Project rule (agent-requested) |
 
-The agent must also have the **aichat MCP server added** (no key in its settings). See "Connect an AI (MCP)"
-in the main README. At the start the agent asks you for **its own AIChat API key** (Admin → Users → (its user)
+The agent must also have the **aichat MCP server added** (no key in its settings). See
+[docs/mcp.md](../docs/mcp.md). At the start the agent asks you for **its own AIChat API key** (Admin → Users → (its user)
 → API token) and connects with it. Give each agent the key of its own user.
 
-## Install (PowerShell, from the `AIChat` folder)
+## Install or update (PowerShell, from the `AIChat` folder)
+
+The same commands install the skill the first time and update it later. They copy the file itself, so running
+them again replaces it (copying the folder onto an existing one would nest a second `aichat` folder inside).
+After installing or updating, **start a new session** of the AI app: skills are loaded when a session starts.
 
 **Claude Code** (all projects):
 ```powershell
-Copy-Item -Recurse -Force agents_skills\claude\aichat "$env:USERPROFILE\.claude\skills\aichat"
+$dir = "$env:USERPROFILE\.claude\skills\aichat"
+New-Item -ItemType Directory -Force $dir | Out-Null
+Copy-Item -Force agents_skills\claude\aichat\SKILL.md "$dir\SKILL.md"
 ```
-For one project only, copy it to `<project>\.claude\skills\aichat` instead.
+For one project only, use `<project>\.claude\skills\aichat` as `$dir`.
 
 **Codex** (then restart Codex):
 ```powershell
-Copy-Item -Recurse -Force agents_skills\codex\aichat "$env:USERPROFILE\.codex\skills\aichat"
+$dir = "$env:USERPROFILE\.codex\skills\aichat"
+New-Item -ItemType Directory -Force $dir | Out-Null
+Copy-Item -Force agents_skills\codex\aichat\SKILL.md "$dir\SKILL.md"
 ```
 
 **Cursor** (per project; Cursor reads rules from the project you open):
@@ -35,19 +43,28 @@ Copy-Item -Force agents_skills\cursor\aichat.mdc <project>\.cursor\rules\aichat.
 To use it in every project, open **Cursor Settings → Rules → User Rules** and paste the text below the `---`
 header instead.
 
-**Any other agent** (general skill): copy the `general\aichat` folder to the folder where your agent reads
-skills. Check its docs; it is usually a `skills` folder in the agent's settings folder (all projects) or in
-the project's agent folder (one project):
+**Any other agent** (general skill): copy `general\aichat\SKILL.md` into an `aichat` folder in the folder where
+your agent reads skills. Check its docs; it is usually a `skills` folder in the agent's settings folder (all
+projects) or in the project's agent folder (one project):
 ```powershell
-Copy-Item -Recurse -Force agents_skills\general\aichat <skills folder>\aichat
+$dir = "<skills folder>\aichat"
+New-Item -ItemType Directory -Force $dir | Out-Null
+Copy-Item -Force agents_skills\general\aichat\SKILL.md "$dir\SKILL.md"
 ```
 If the agent doesn't support skills at all, paste the text below the `---` header into its system prompt,
 custom instructions or `AGENTS.md`.
 
+**Check the install:** the skill's folder should hold one `SKILL.md` and no inner `aichat` folder. If you see
+`...\skills\aichat\aichat\SKILL.md` from an older install, delete that inner `aichat` folder.
+
+**Claude apps (claude.ai / Claude Desktop):** they keep their own uploaded copy. Zip the `claude\aichat` folder
+(the zip holds `aichat\SKILL.md`), then in the app's skills settings remove the old `aichat` skill and upload
+the zip.
+
 ## Use
 Ask the agent something like:
 - "Check AIChat and answer anything addressed to me."
-- "Help the Design group plan the Q4 launch in AIChat."
+- "Help the Design group plan the Q4 launch in AIChat." (the agent finds the group's chats itself)
 - "Follow AIChat for 15 minutes and reply to new questions you can help with."
 
 The skill loads by itself when the request is about AIChat.

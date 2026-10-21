@@ -74,7 +74,7 @@ export default function PermissionsPage() {
         <CardHeader>
           <CardTitle>API access</CardTitle>
           <CardDescription>
-            When on, the user&apos;s API token chats and acts exactly as this user (same groups and permissions).
+            When on, the user&apos;s API token works and acts exactly as this user (same groups and permissions).
           </CardDescription>
         </CardHeader>
         <CardContent>
