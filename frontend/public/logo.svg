@@ -1,0 +1,218 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1254" height="1254" viewBox="0 0 1254 1254" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">AIChat — half cat, half robot</title>
+  <desc id="desc">A left-facing cat with two ears. Its face and far ear are warm caramel and cream; its rear half and near ear have blue-gray mechanical plates, blue lights and circuit details.</desc>
+  <defs>
+    <radialGradient id="background" cx="50%" cy="47%" r="72%">
+      <stop stop-color="#160D07" />
+      <stop offset="1" stop-color="#0F0804" />
+    </radialGradient>
+    <linearGradient id="head" x1="481" y1="375" x2="824" y2="704" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B5793F" />
+      <stop offset="1" stop-color="#B77B42" />
+    </linearGradient>
+    <linearGradient id="back" x1="768" y1="441" x2="879" y2="945" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#835024" />
+      <stop offset="1" stop-color="#73401C" />
+    </linearGradient>
+    <linearGradient id="earOuter" x1="618" y1="324" x2="795" y2="322" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C58A4C" />
+      <stop offset="1" stop-color="#A96931" />
+    </linearGradient>
+    <linearGradient id="earShadow" x1="701" y1="254" x2="811" y2="426" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#764019" />
+      <stop offset="1" stop-color="#8D5125" />
+    </linearGradient>
+    <linearGradient id="earInner" x1="679" y1="251" x2="725" y2="477" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2DAB0" />
+      <stop offset="1" stop-color="#E6C99C" />
+    </linearGradient>
+    <linearGradient id="forehead" x1="456" y1="414" x2="505" y2="553" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C99357" />
+      <stop offset="1" stop-color="#E0B77D" />
+    </linearGradient>
+    <linearGradient id="bridge" x1="470" y1="473" x2="365" y2="610" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F1D9AE" />
+      <stop offset="1" stop-color="#EAD0A1" />
+    </linearGradient>
+    <linearGradient id="eyeSurround" x1="461" y1="488" x2="572" y2="558" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#C68D51" />
+      <stop offset="1" stop-color="#D9A364" />
+    </linearGradient>
+    <linearGradient id="iris" x1="493" y1="510" x2="523" y2="564" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8BC7A" />
+      <stop offset="1" stop-color="#EAC58A" />
+    </linearGradient>
+    <linearGradient id="eyeFacet" x1="543" y1="537" x2="617" y2="607" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9C5F2B" />
+      <stop offset="1" stop-color="#945B29" />
+    </linearGradient>
+    <linearGradient id="muzzle" x1="362" y1="636" x2="468" y2="690" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F2DDB6" />
+      <stop offset="1" stop-color="#EACDA0" />
+    </linearGradient>
+    <linearGradient id="creamCheek" x1="503" y1="678" x2="629" y2="769" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#EAD0A5" />
+      <stop offset="1" stop-color="#DDBA8C" />
+    </linearGradient>
+    <linearGradient id="chest" x1="548" y1="821" x2="645" y2="945" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#E8CCA1" />
+      <stop offset="1" stop-color="#F1D9AE" />
+    </linearGradient>
+    <linearGradient id="shoulder" x1="647" y1="850" x2="776" y2="902" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BC8247" />
+      <stop offset="1" stop-color="#AE6E35" />
+    </linearGradient>
+    <linearGradient id="lowerLeft" x1="457" y1="946" x2="590" y2="995" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#BC8349" />
+      <stop offset="1" stop-color="#CD995E" />
+    </linearGradient>
+    <linearGradient id="metalMain" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#8C9FAA" />
+      <stop offset="1" stop-color="#506778" />
+    </linearGradient>
+    <linearGradient id="metalDark" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#344C60" />
+      <stop offset="1" stop-color="#1F2D3C" />
+    </linearGradient>
+    <linearGradient id="metalEar" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#A5B8C5" />
+      <stop offset="1" stop-color="#526F85" />
+    </linearGradient>
+    <linearGradient id="earGlass" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#102B3D" />
+      <stop offset="1" stop-color="#163D54" />
+    </linearGradient>
+    <linearGradient id="metalLight" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#B5C5CF" />
+      <stop offset="1" stop-color="#7E98AA" />
+    </linearGradient>
+    <linearGradient id="metalFacet" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#4B6F89" />
+      <stop offset="1" stop-color="#2C4B64" />
+    </linearGradient>
+    <linearGradient id="metalShoulder" x1="0%" y1="0%" x2="100%" y2="85%">
+      <stop offset="0" stop-color="#7798AF" />
+      <stop offset="1" stop-color="#3D5971" />
+    </linearGradient>
+    <clipPath id="robotHalf" clipPathUnits="userSpaceOnUse">
+      <path d="M625 385 610 453 620 496 590 508 622 548 590 638 633 682 596 820 596 1045 590 1071H1100V130H620Z" />
+    </clipPath>
+  </defs>
+  <rect width="1254" height="1254" fill="url(#background)" />
+  <g id="cat">
+    <g id="far-ear">
+      <path d="M517 379 510 239 620 313 605 362Z" fill="#A76D37" />
+      <path d="m510 239 48 101-41 39Z" fill="#E5C99E" />
+      <path d="m510 239 81 85-33 16Z" fill="#825025" />
+      <path d="m510 239 110 74-29 11Z" fill="#AC7139" />
+      <path d="M517 379 558 340 624 312 607 364 571 361Z" fill="#73421E" />
+    </g>
+    <path id="silhouette" d="M605 362 651 239 685 173 736 224 843 392 897 513 897 600 972 797 876 980 590 1071 438 973 465 890 505 842Q533 814 528 797 511 771 480 755L422 756Q389 754 373 729L368 718 360 698Q341 688 338 641 330 624 328 606L393 550 394 481 450 412 517 379Q563 355 605 362Z" fill="url(#head)" />
+    <path id="back-facet" d="M731 495 843 392 897 513 897 600 972 797 876 980 590 1071 711 960 876 827 769 744 842 604Z" fill="url(#back)" />
+    <g id="near-ear">
+      <path d="M605 362 651 239 685 173 736 224 843 392 811 437 731 495 713 419 625 385Z" fill="url(#earOuter)" />
+      <path d="M685 173 736 224 843 392 811 437 748 312 700 211Z" fill="#A66832" />
+      <path d="M700 211 748 312 811 437 731 495 713 419Z" fill="url(#earShadow)" />
+      <path d="M644 391Q664 281 700 211 740 319 737 411L731 495 713 419Z" fill="url(#earInner)" />
+      <path d="m625 385 88 34 18 76Z" fill="#8B5226" />
+    </g>
+    <path id="forehead-facet" d="M450 412 517 379Q563 355 605 362L625 385 590 508 545 482 481 484 515 410 438 461 394 550 394 481Z" fill="url(#forehead)" />
+    <path id="main-cheek" d="m625 385 217 219-73 140-83-13-96-93-88-37 56-47 32-46-45-26-64 2 34-74 90-48Z" fill="url(#head)" />
+    <path id="eye-cheek-facet" d="m590 508 96 42-96 88-88-37 56-47Z" fill="url(#eyeFacet)" />
+    <path id="bridge" d="M328 606 393 550 414 506 438 461 515 410 481 484 461 525Q454 570 411 604L380 617Z" fill="url(#bridge)" />
+    <path d="m438 461 60-39-35 51-15 40Z" fill="#9F6936" />
+    <g id="eye">
+      <path d="M437 582 461 525 481 484 545 482 590 508 558 554 511 578 455 586Z" fill="url(#eyeSurround)" />
+      <path d="M437 582Q453 550 461 514 502 482 590 508 566 510 551 524L535 550Q502 581 466 574Z" fill="#2C1609" />
+      <path d="M480 517Q498 503 547 515 536 541 519 555 494 579 480 565 467 546 480 517Z" fill="url(#iris)" />
+      <path d="M491 508 506 510Q509 535 498 558 486 540 491 508Z" fill="#281208" />
+      <path d="m505 516 39 3-5 7-33-6Z" fill="#F3DEB7" />
+      <path d="M519 555 546 515 556 514Q547 539 519 555Z" fill="#321A0B" />
+      <path d="M437 582 466 574 489 576 455 586Z" fill="#7B491F" />
+      <path d="M455 586 511 578 558 554 539 573 502 594Z" fill="#D5A366" />
+    </g>
+    <g id="muzzle-and-chin">
+      <path d="M411 604 461 644 534 665 590 638 686 731 596 820 528 797Q508 771 480 755L422 756Q388 753 373 729L368 718 360 698 408 708 453 702 466 677Z" fill="url(#creamCheek)" />
+      <path d="M380 617 411 604 461 644Q474 678 453 702 436 715 408 708L382 704Q361 692 353 671 348 650 356 638Z" fill="url(#muzzle)" />
+      <path d="M338 641Q338 673 350 687L361 698Q354 674 353 653Z" fill="#F1DAB1" />
+      <path d="M328 606Q349 594 380 617L363 634 352 653Q336 641 328 606Z" fill="#663718" />
+      <path d="M355 619Q366 613 378 619L353 639Q347 625 355 619Z" fill="#261208" />
+      <path d="M352 653Q356 679 365 687L414 710Q389 703 362 699L349 680Z" fill="#5F3319" />
+      <path d="M365 700Q384 719 422 715 439 715 453 702 436 712 408 708Z" fill="#DDC093" />
+    </g>
+    <g id="chest-and-shoulders">
+      <path d="M528 797 596 820 769 744 876 827 711 960 590 1071 438 973 465 890 505 842Q533 814 528 797Z" fill="url(#lowerLeft)" />
+      <path d="m596 820 173-76 107 83-165 133-121 111 6-26 38-142Z" fill="url(#shoulder)" />
+      <path d="M528 797 596 820 769 744 634 903 596 1045 509 921 528 823Z" fill="url(#chest)" />
+    </g>
+    <g id="whiskers" fill="#F3DDB7">
+      <path d="M410 644Q493 647 586 685 497 657 412 646Z" />
+      <path d="M410 660Q505 681 604 748 505 693 412 663Z" />
+      <path d="M411 677Q510 717 598 816 513 737 412 680Z" />
+    </g>
+  </g>
+  <g id="robot-half" clip-path="url(#robotHalf)">
+    <g id="robot-far-ear">
+      <path d="M517 379 510 239 620 313 605 362Z" fill="#A76D37" />
+      <path d="m510 239 48 101-41 39Z" fill="#E5C99E" />
+      <path d="m510 239 81 85-33 16Z" fill="#825025" />
+      <path d="m510 239 110 74-29 11Z" fill="#AC7139" />
+      <path d="M517 379 558 340 624 312 607 364 571 361Z" fill="#73421E" />
+    </g>
+    <path id="robot-silhouette" d="M605 362 651 239 685 173 736 224 843 392 897 513 897 600 972 797 876 980 590 1071 438 973 465 890 505 842Q533 814 528 797 511 771 480 755L422 756Q389 754 373 729L368 718 360 698Q341 688 338 641 330 624 328 606L393 550 394 481 450 412 517 379Q563 355 605 362Z" fill="url(#metalMain)" />
+    <path id="robot-back-facet" d="M731 495 843 392 897 513 897 600 972 797 876 980 590 1071 711 960 876 827 769 744 842 604Z" fill="url(#metalDark)" />
+    <g id="robot-near-ear">
+      <path d="M605 362 651 239 685 173 736 224 843 392 811 437 731 495 713 419 625 385Z" fill="url(#metalEar)" />
+      <path d="M685 173 736 224 843 392 811 437 748 312 700 211Z" fill="#47677D" />
+      <path d="M700 211 748 312 811 437 731 495 713 419Z" fill="url(#metalDark)" />
+      <path d="M644 391Q664 281 700 211 740 319 737 411L731 495 713 419Z" fill="url(#earGlass)" />
+      <path d="m625 385 88 34 18 76Z" fill="#344F65" />
+    </g>
+    <path id="robot-forehead-facet" d="M450 412 517 379Q563 355 605 362L625 385 590 508 545 482 481 484 515 410 438 461 394 550 394 481Z" fill="url(#metalLight)" />
+    <path id="robot-main-cheek" d="m625 385 217 219-73 140-83-13-96-93-88-37 56-47 32-46-45-26-64 2 34-74 90-48Z" fill="url(#metalMain)" />
+    <path id="robot-eye-cheek-facet" d="m590 508 96 42-96 88-88-37 56-47Z" fill="url(#metalFacet)" />
+    <path id="robot-bridge" d="M328 606 393 550 414 506 438 461 515 410 481 484 461 525Q454 570 411 604L380 617Z" fill="url(#metalLight)" />
+    <path d="m438 461 60-39-35 51-15 40Z" fill="#9F6936" />
+    <g id="robot-eye">
+      <path d="M437 582 461 525 481 484 545 482 590 508 558 554 511 578 455 586Z" fill="url(#eyeSurround)" />
+      <path d="M437 582Q453 550 461 514 502 482 590 508 566 510 551 524L535 550Q502 581 466 574Z" fill="#2C1609" />
+      <path d="M480 517Q498 503 547 515 536 541 519 555 494 579 480 565 467 546 480 517Z" fill="url(#iris)" />
+      <path d="M491 508 506 510Q509 535 498 558 486 540 491 508Z" fill="#281208" />
+      <path d="m505 516 39 3-5 7-33-6Z" fill="#F3DEB7" />
+      <path d="M519 555 546 515 556 514Q547 539 519 555Z" fill="#321A0B" />
+      <path d="M437 582 466 574 489 576 455 586Z" fill="#7B491F" />
+      <path d="M455 586 511 578 558 554 539 573 502 594Z" fill="#D5A366" />
+    </g>
+    <g id="robot-muzzle-and-chin">
+      <path d="M411 604 461 644 534 665 590 638 686 731 596 820 528 797Q508 771 480 755L422 756Q388 753 373 729L368 718 360 698 408 708 453 702 466 677Z" fill="url(#metalLight)" />
+      <path d="M380 617 411 604 461 644Q474 678 453 702 436 715 408 708L382 704Q361 692 353 671 348 650 356 638Z" fill="url(#metalLight)" />
+      <path d="M338 641Q338 673 350 687L361 698Q354 674 353 653Z" fill="#F1DAB1" />
+      <path d="M328 606Q349 594 380 617L363 634 352 653Q336 641 328 606Z" fill="#663718" />
+      <path d="M355 619Q366 613 378 619L353 639Q347 625 355 619Z" fill="#261208" />
+      <path d="M352 653Q356 679 365 687L414 710Q389 703 362 699L349 680Z" fill="#5F3319" />
+      <path d="M365 700Q384 719 422 715 439 715 453 702 436 712 408 708Z" fill="#DDC093" />
+    </g>
+    <g id="robot-chest-and-shoulders">
+      <path d="M528 797 596 820 769 744 876 827 711 960 590 1071 438 973 465 890 505 842Q533 814 528 797Z" fill="url(#metalMain)" />
+      <path d="m596 820 173-76 107 83-165 133-121 111 6-26 38-142Z" fill="url(#metalShoulder)" />
+      <path d="M528 797 596 820 769 744 634 903 596 1045 509 921 528 823Z" fill="url(#metalLight)" />
+    </g>
+    <g id="robot-whiskers" fill="#F3DDB7">
+      <path d="M410 644Q493 647 586 685 497 657 412 646Z" />
+      <path d="M410 660Q505 681 604 748 505 693 412 663Z" />
+      <path d="M411 677Q510 717 598 816 513 737 412 680Z" />
+    </g>
+  </g>
+  <g id="mechanical-details" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M625 385 610 453 620 496 590 508 622 548 590 638 633 682 596 820 596 1045 590 1071" fill="none" stroke="#253848" stroke-width="7" />
+    <path d="M625 385 610 453 620 496 590 508 622 548 590 638 633 682 596 820 596 1045 590 1071" fill="none" stroke="#ADC1CF" stroke-width="2" />
+    <path d="M681 315 705 329" stroke="#64C9FA" stroke-width="7" />
+    <path d="M674 342 711 359" stroke="#64C9FA" stroke-width="7" />
+    <path d="M667 369 714 390" stroke="#64C9FA" stroke-width="7" />
+    <path d="M769 744 876 827 711 960" fill="none" stroke="#243B50" stroke-width="5" />
+    <path d="M751 806 790 836" stroke="#253E53" stroke-width="7" />
+    <path d="M735 824 773 854" stroke="#253E53" stroke-width="7" />
+    <path d="M719 842 756 872" stroke="#253E53" stroke-width="7" />
+    <path d="M615 904 603 950" stroke="#60C7FA" stroke-width="5" />
+  </g>
+</svg>
