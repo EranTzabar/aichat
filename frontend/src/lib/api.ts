@@ -70,11 +70,11 @@ export function avatarProblem(file: File): string | null {
   return null;
 }
 
-/** Upload a file to a work (with progress, 0..1). Returns the attachment to send in `attachment_ids`. */
-export function uploadFile(workId: number, file: File, onProgress?: (fraction: number) => void): Promise<Attachment> {
+/** Upload a file to a chat (with progress, 0..1). Returns the attachment to send in `attachment_ids`. */
+export function uploadFile(chatId: number, file: File, onProgress?: (fraction: number) => void): Promise<Attachment> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
-    xhr.open("POST", `${API_URL}/works/${workId}/attachments`);
+    xhr.open("POST", `${API_URL}/chats/${chatId}/attachments`);
     const token = getToken();
     if (token) xhr.setRequestHeader("Authorization", `Bearer ${token}`);
     xhr.upload.onprogress = (e) => e.lengthComputable && onProgress?.(e.loaded / e.total);

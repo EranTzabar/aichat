@@ -8,6 +8,7 @@ from app.models import Group, User, UserGroup
 from app.routers.me import groups_of
 from app.schemas import AdminUserOut, ApiTokenOut, UserCreate, UserGroupsIn, UserUpdate
 from app.security import create_api_token, hash_password, require_admin
+from app.services.audit import audit, changes
 from app.services.avatars import save_avatar
 from app.ws import manager
 
@@ -44,7 +45,9 @@ async def list_users(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("", response_model=AdminUserOut, status_code=201)
-async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
+async def create_user(
+    payload: UserCreate, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)
+):
     if await db.scalar(select(User.id).where(User.username == payload.username)):
         raise ApiError(409, "username_taken", f"Username '{payload.username}' is already taken.")
     user = User(
@@ -55,6 +58,8 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
         is_admin=payload.is_admin,
     )
     db.add(user)
+    await db.flush()
+    audit(db, admin, "user.create", target=("user", user.id), details={"username": user.username, "is_admin": user.is_admin})
     await db.commit()
     return await admin_user_out(db, user)
 
@@ -72,19 +77,24 @@ async def update_user(
     data = payload.model_dump(exclude_unset=True)
     if user.id == admin.id and data.get("is_active") is False:
         raise ApiError(422, "validation_error", "You can't disable your own admin account.")
-    if "password" in data:
-        password = data.pop("password")
-        if password:
-            user.password_hash = hash_password(password)
+    password = data.pop("password", None)
+    details = changes(user, data)
+    if password:
+        user.password_hash = hash_password(password)
+        details["password"] = "changed"
     for key, value in data.items():
         if value is not None:
             setattr(user, key, value)
+    if details:
+        audit(db, admin, "user.update", target=("user", user.id), details=details)
     await db.commit()
     return await admin_user_out(db, user)
 
 
 @router.put("/{user_id}/groups", response_model=AdminUserOut, summary="Set the user's groups (existing groups only)")
-async def set_user_groups(user_id: int, payload: UserGroupsIn, db: AsyncSession = Depends(get_db)):
+async def set_user_groups(
+    user_id: int, payload: UserGroupsIn, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)
+):
     user = await _get_user(db, user_id)
     wanted = set(payload.group_ids)
     existing = set((await db.scalars(select(Group.id).where(Group.id.in_(wanted)))).all())
@@ -97,6 +107,9 @@ async def set_user_groups(user_id: int, payload: UserGroupsIn, db: AsyncSession 
     if removed:
         await db.execute(delete(UserGroup).where(UserGroup.user_id == user.id, UserGroup.group_id.in_(removed)))
     db.add_all(UserGroup(user_id=user.id, group_id=g) for g in added)
+    if added or removed:
+        details = {"added": sorted(added), "removed": sorted(removed)}
+        audit(db, admin, "user.groups", target=("user", user.id), details=details)
     await db.commit()
 
     names = dict((await db.execute(select(Group.id, Group.name).where(Group.id.in_(removed | added)))).all())
@@ -110,8 +123,14 @@ async def set_user_groups(user_id: int, payload: UserGroupsIn, db: AsyncSession 
 
 
 @router.get("/{user_id}/api-token", response_model=ApiTokenOut, summary="Get the user's current API token")
-async def get_api_token(user_id: int, db: AsyncSession = Depends(get_db)):
+async def get_api_token(user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)):
     user = await _get_user(db, user_id)
+    audit(db, admin, "user.token_view", target=("user", user.id))
+    await db.commit()
+    return _token_out(user)
+
+
+def _token_out(user: User) -> dict:
     return {
         "user_id": user.id,
         "token": create_api_token(user),
@@ -121,13 +140,21 @@ async def get_api_token(user_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/{user_id}/api-token/regenerate", response_model=ApiTokenOut, summary="New API token; old one stops working")
-async def regenerate_api_token(user_id: int, db: AsyncSession = Depends(get_db)):
+async def regenerate_api_token(
+    user_id: int, db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)
+):
     user = await _get_user(db, user_id)
     user.token_version += 1
+    audit(db, admin, "user.token_regenerate", target=("user", user.id), details={"token_version": user.token_version})
     await db.commit()
-    return await get_api_token(user_id, db)
+    return _token_out(user)
 
 
 @router.post("/{user_id}/avatar", status_code=204)
-async def upload_avatar(user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db)):
-    await save_avatar(db, await _get_user(db, user_id), file)
+async def upload_avatar(
+    user_id: int, file: UploadFile = File(...), db: AsyncSession = Depends(get_db), admin: User = Depends(require_admin)
+):
+    user = await _get_user(db, user_id)
+    await save_avatar(db, user, file)
+    audit(db, admin, "user.avatar", target=("user", user.id))
+    await db.commit()

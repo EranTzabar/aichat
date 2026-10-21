@@ -10,13 +10,15 @@ from sqlalchemy.orm import aliased
 
 from app.db import get_db, utcnow
 from app.errors import ApiError, not_found
-from app.models import Group, Message, MessageView, User, UserGroup, Work
-from app.permissions import user_group_ids
+from app.models import Group, Message, MessageView, User, UserGroup, Chat
+from app.permissions import accessible_chats, user_group_ids
 from app.schemas import GroupRef, MeOut, MentionOut, PersonOut, SeenIn, SeenOut, UpdatesOut, UserRef
 from app.security import get_current_user
+from app.services.audit import audit
 from app.services.avatars import avatar_response, save_avatar
+from app.services.mentions import readable, tag
 from app.services.serialize import load_users, serialize_messages, user_ref
-from app.ws import manager, notify_work
+from app.ws import manager, notify_chat
 
 router = APIRouter(tags=["me & people"])
 
@@ -43,7 +45,13 @@ async def me_out(db: AsyncSession, user: User) -> dict:
 
 
 def person(u: User) -> dict:
-    return {"id": u.id, "username": u.username, "display_name": u.display_name, "online": manager.is_online(u.id)}
+    return {
+        "id": u.id,
+        "username": u.username,
+        "display_name": u.display_name,
+        "online": manager.is_online(u.id),
+        "active": u.is_active,
+    }
 
 
 @router.get("/me", response_model=MeOut, summary="My profile and groups")
@@ -65,14 +73,14 @@ async def my_mentions(
     db: AsyncSession = Depends(get_db),
 ):
     q = (
-        select(Message, Work.title)
-        .join(Work, Work.id == Message.work_id)
+        select(Message, Chat.title)
+        .join(Chat, Chat.id == Message.chat_id)
         .where(Message.reply_to_user_id == me.id, Message.author_id != me.id)
         .order_by(Message.id.desc())
         .limit(limit)
     )
     if not me.is_admin:
-        q = q.where(Work.group_id.in_(select(UserGroup.group_id).where(UserGroup.user_id == me.id)))
+        q = q.where(Chat.group_id.in_(select(UserGroup.group_id).where(UserGroup.user_id == me.id)))
     if since_id is not None:
         q = q.where(Message.id > since_id)
     if before_id is not None:
@@ -80,7 +88,7 @@ async def my_mentions(
     rows = (await db.execute(q)).all()
     data = await serialize_messages(db, [m for m, _ in rows], me)
     for item, (_, title) in zip(data, rows):
-        item["work_title"] = title
+        item["chat_title"] = title
     return data
 
 
@@ -89,10 +97,18 @@ async def upload_my_avatar(
     file: UploadFile = File(...), me: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)
 ):
     await save_avatar(db, me, file)
+    audit(db, me, "me.avatar", target=("user", me.id))
+    await db.commit()
 
 
 @router.get("/people", response_model=list[PersonOut], summary="People who share a group with me")
-async def people(me: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+async def people(
+    everyone: bool = Query(False, description="All users of the site (for tagging), including inactive ones"),
+    me: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if everyone:
+        return [person(u) for u in await db.scalars(select(User).order_by(User.display_name))]
     q = select(User).where(User.is_active).order_by(User.display_name)
     if not me.is_admin:
         shared = select(UserGroup.user_id).where(
@@ -139,21 +155,14 @@ CURSOR_RE = re.compile(r"^m(\d+)\.w(\d+)$")
 UPDATE_SETTLE_SECONDS = 1.5
 
 
-def _accessible_works(me_id: int, is_admin: bool):
-    """Filter on Work for works the user can see."""
-    if is_admin:
-        return True
-    return Work.group_id.in_(select(UserGroup.group_id).where(UserGroup.user_id == me_id))
-
-
-def _mention_pattern(username: str, display_name: str) -> re.Pattern:
-    """Matches @username, the full display name or the first name, as whole words."""
+def _mention_pattern(user_id: int, username: str, display_name: str) -> re.Pattern:
+    """Matches a `<@id>` tag, @username, the full display name or the first name, as whole words."""
     names = {username, display_name}
     first = display_name.split()[0] if display_name.split() else ""
     if len(first) >= 3:
         names.add(first)
     alternatives = "|".join(re.escape(n) for n in sorted(names, key=len, reverse=True) if n)
-    return re.compile(rf"(?<!\w)@?(?:{alternatives})(?!\w)", re.IGNORECASE)
+    return re.compile(rf"{re.escape(tag(user_id))}|(?<!\w)@?(?:{alternatives})(?!\w)", re.IGNORECASE)
 
 
 async def _my_threads(db: AsyncSession, me_id: int, comment_ids: set[int]) -> set[int]:
@@ -184,22 +193,22 @@ async def _thread_roots(db: AsyncSession, messages: list[Message]) -> dict[int, 
 async def _collect_updates(
     db: AsyncSession, me_id: int, is_admin: bool, mention: re.Pattern, m_after: int, w_after: int, limit: int
 ):
-    access = _accessible_works(me_id, is_admin)
+    access = accessible_chats(me_id, is_admin)
     msg_rows = (
         await db.execute(
-            select(Message, Work.title)
-            .join(Work, Work.id == Message.work_id)
+            select(Message, Chat.title)
+            .join(Chat, Chat.id == Message.chat_id)
             .where(Message.id > m_after, Message.author_id != me_id, access)
             .order_by(Message.id)
             .limit(limit)
         )
     ).all()
-    work_rows = (
+    chat_rows = (
         await db.execute(
-            select(Work, Group.name)
-            .join(Group, Group.id == Work.group_id)
-            .where(Work.id > w_after, Work.created_by != me_id, access)
-            .order_by(Work.id)
+            select(Chat, Group.name)
+            .join(Group, Group.id == Chat.group_id)
+            .where(Chat.id > w_after, Chat.created_by != me_id, access)
+            .order_by(Chat.id)
             .limit(limit)
         )
     ).all()
@@ -208,12 +217,13 @@ async def _collect_updates(
     roots = await _thread_roots(db, [m for m, _ in msg_rows])
     my_threads = await _my_threads(db, me_id, {roots[m.id] for m, _ in msg_rows if m.parent_id})
     for item, (m, title) in zip(messages, msg_rows):
-        item["work_title"] = title
+        item["chat_title"] = title
         item["is_reply_to_me"] = m.reply_to_user_id == me_id
         item["mentions_me"] = bool(mention.search(m.body))
         item["in_my_thread"] = bool(m.parent_id) and roots[m.id] in my_threads
-    authors = await load_users(db, [w.created_by for w, _ in work_rows])
-    new_works = [
+    authors = await load_users(db, [w.created_by for w, _ in chat_rows])
+    previews = await readable(db, [w.body[:300] for w, _ in chat_rows])
+    new_chats = [
         {
             "id": w.id,
             "title": w.title,
@@ -222,13 +232,14 @@ async def _collect_updates(
             "status": w.status,
             "created_at": w.created_at,
             "author": user_ref(authors[w.created_by]),
-            "body_preview": w.body[:300],
+            "body_preview": preview,
+            "mentions_me": me_id in (w.tagged_user_ids or []) or bool(mention.search(w.body)),
         }
-        for w, group_name in work_rows
+        for (w, group_name), preview in zip(chat_rows, previews)
     ]
     m_next = msg_rows[-1][0].id if msg_rows else m_after
-    w_next = work_rows[-1][0].id if work_rows else w_after
-    return f"m{m_next}.w{w_next}", new_works, messages
+    w_next = chat_rows[-1][0].id if chat_rows else w_after
+    return f"m{m_next}.w{w_next}", new_chats, messages
 
 
 @router.get("/me/updates", response_model=UpdatesOut, summary="What's new since my cursor (optionally wait for it)")
@@ -239,22 +250,22 @@ async def my_updates(
     me: User = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """New messages written by others and new works in my groups, after `cursor`.
+    """New messages written by others and new chats in my groups, after `cursor`.
 
-    The first call (no cursor) returns the current cursor plus the works that have unread messages.
+    The first call (no cursor) returns the current cursor plus the chats that have unread messages.
     With `wait`, the request is held open until something new arrives or the time runs out (long-poll)."""
     me_id, is_admin = me.id, me.is_admin
     if cursor is None:
-        from app.routers.works import list_works  # local import: works.py is a sibling router
+        from app.routers.chats import list_chats  # local import: chats.py is a sibling router
 
         m_max = await db.scalar(select(func.coalesce(func.max(Message.id), 0)))
-        w_max = await db.scalar(select(func.coalesce(func.max(Work.id), 0)))
-        works = await list_works("all", None, None, None, 500, 0, me, db)
+        w_max = await db.scalar(select(func.coalesce(func.max(Chat.id), 0)))
+        chats = await list_chats("all", None, None, None, 500, 0, me, db)
         return {
             "cursor": f"m{m_max}.w{w_max}",
-            "new_works": [],
+            "new_chats": [],
             "messages": [],
-            "unread_works": [w for w in works if w["unread_count"] > 0],
+            "unread_chats": [w for w in chats if w["unread_count"] > 0],
         }
 
     match = CURSOR_RE.match(cursor)
@@ -262,7 +273,7 @@ async def my_updates(
         raise ApiError(422, "validation_error", "Invalid cursor. Use the `cursor` value from a previous response.")
     m_after, w_after = int(match[1]), int(match[2])
 
-    mention = _mention_pattern(me.username, me.display_name)  # read before rollback() expires `me`
+    mention = _mention_pattern(me.id, me.username, me.display_name)  # read before rollback() expires `me`
     loop = asyncio.get_running_loop()
     deadline = loop.time() + wait
     while True:
@@ -270,12 +281,12 @@ async def my_updates(
         event = manager.add_waiter(me_id)
         woken = False
         try:
-            next_cursor, new_works, messages = await _collect_updates(
+            next_cursor, new_chats, messages = await _collect_updates(
                 db, me_id, is_admin, mention, m_after, w_after, limit
             )
             remaining = deadline - loop.time()
-            if new_works or messages or remaining <= 0:
-                return {"cursor": next_cursor, "new_works": new_works, "messages": messages, "unread_works": []}
+            if new_chats or messages or remaining <= 0:
+                return {"cursor": next_cursor, "new_chats": new_chats, "messages": messages, "unread_chats": []}
             await db.rollback()  # return the DB connection to the pool while waiting
             try:
                 await asyncio.wait_for(event.wait(), remaining)
@@ -299,12 +310,12 @@ async def mark_seen(payload: SeenIn, me: User = Depends(get_current_user), db: A
     me_ref = user_ref(me)
     rows = (
         await db.execute(
-            select(Message.id, Work)
-            .join(Work, Work.id == Message.work_id)
+            select(Message.id, Chat)
+            .join(Chat, Chat.id == Message.chat_id)
             .where(
                 Message.id.in_(set(payload.message_ids)),
                 Message.author_id != me.id,
-                _accessible_works(me.id, False),
+                accessible_chats(me.id, False),
             )
         )
     ).all()
@@ -314,11 +325,11 @@ async def mark_seen(payload: SeenIn, me: User = Depends(get_current_user), db: A
     new_ids = set((await db.scalars(stmt.on_conflict_do_nothing().returning(MessageView.message_id))).all())
     await db.commit()
 
-    by_work: dict[int, tuple[Work, list[int]]] = {}
-    for mid, work in rows:
+    by_chat: dict[int, tuple[Chat, list[int]]] = {}
+    for mid, chat in rows:
         if mid in new_ids:
-            by_work.setdefault(work.id, (work, []))[1].append(mid)
-    for work, ids in by_work.values():
+            by_chat.setdefault(chat.id, (chat, []))[1].append(mid)
+    for chat, ids in by_chat.values():
         event = {"type": "message.seen", "user": me_ref, "message_ids": sorted(ids)}
-        await notify_work(db, work, event, wake=False)
+        await notify_chat(db, chat, event, wake=False)
     return {"recorded": len(new_ids)}

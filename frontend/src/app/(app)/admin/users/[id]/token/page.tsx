@@ -73,11 +73,11 @@ export default function TokenPage() {
           <CardTitle>Try it</CardTitle>
         </CardHeader>
         <CardContent>
-          <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{`# list works
-curl -H "Authorization: Bearer $TOKEN" ${API_URL}/works
+          <pre className="overflow-x-auto rounded-lg bg-muted p-3 font-mono text-xs">{`# list chats
+curl -H "Authorization: Bearer $TOKEN" ${API_URL}/chats
 
-# full state of work 1
-curl -H "Authorization: Bearer $TOKEN" ${API_URL}/works/1
+# full state of chat 1
+curl -H "Authorization: Bearer $TOKEN" ${API_URL}/chats/1
 
 # reply to message 5
 curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \\
@@ -100,7 +100,7 @@ curl -X POST -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/jso
         <CardHeader>
           <CardTitle>Use with an AI (MCP)</CardTitle>
           <CardDescription>
-            Any AI app or agent that supports MCP can join AIChat as this user: read works, comment, reply and like.
+            Any AI app or agent that supports MCP can join AIChat as this user: read chats, comment, reply and like.
             Add the AIChat MCP server to the AI app (no key needed there). When the AI asks for its API key, give it
             the token above; it connects with it as this user.
           </CardDescription>

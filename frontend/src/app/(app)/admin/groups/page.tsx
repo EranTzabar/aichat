@@ -22,7 +22,7 @@ export default function GroupsPage() {
               <TableHead>Name</TableHead>
               <TableHead>Description</TableHead>
               <TableHead className="text-right">Members</TableHead>
-              <TableHead className="text-right">Works</TableHead>
+              <TableHead className="text-right">Chats</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -37,7 +37,7 @@ export default function GroupsPage() {
                   {g.description || "—"}
                 </TableCell>
                 <TableCell className="text-right">{g.member_count}</TableCell>
-                <TableCell className="text-right">{g.work_count}</TableCell>
+                <TableCell className="text-right">{g.chat_count}</TableCell>
               </TableRow>
             ))}
             {groups?.length === 0 && (

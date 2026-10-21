@@ -22,6 +22,11 @@ class GroupRef(Out):
     name: str
 
 
+class ChatRef(BaseModel):
+    id: int
+    title: str
+
+
 class LikesOut(BaseModel):
     count: int
     users: list[UserRef]
@@ -32,7 +37,7 @@ class LikeStatus(BaseModel):
     liked_by_me: bool
 
 
-# ---------- messages & works ----------
+# ---------- messages & chats ----------
 class AttachmentOut(BaseModel):
     id: int = Field(description="Download the file with GET /attachments/{id}/file (same Bearer token).")
     filename: str
@@ -44,14 +49,14 @@ class AttachmentOut(BaseModel):
 
 
 class AttachmentInfoOut(AttachmentOut):
-    work_id: int
-    message_id: int | None = Field(description="The message it belongs to; null if on the work post or unsent.")
-    on_work: bool = Field(description="Attached to the work post itself.")
+    chat_id: int
+    message_id: int | None = Field(description="The message it belongs to; null if on the chat post or unsent.")
+    on_chat: bool = Field(description="Attached to the chat post itself.")
 
 
 class MessageOut(BaseModel):
     id: int
-    work_id: int
+    chat_id: int
     parent_id: int | None
     body: str
     created_at: datetime
@@ -64,14 +69,17 @@ class MessageOut(BaseModel):
         description="Users whose AI agent read this message through the MCP, first seen first. Admins are not listed.",
     )
     attachments: list[AttachmentOut] = Field(default_factory=list)
+    mentions: list[UserRef] = Field(
+        default_factory=list, description="Users tagged in the text: `<@id>` (by id) or `@username`."
+    )
     replies: list["MessageOut"] | None = None
 
 
 class MentionOut(MessageOut):
-    work_title: str
+    chat_title: str
 
 
-class WorkOut(BaseModel):
+class ChatOut(BaseModel):
     id: int
     title: str
     body: str
@@ -82,12 +90,21 @@ class WorkOut(BaseModel):
     author: UserRef
     likes: LikesOut
     liked_by_me: bool
-    attachments: list[AttachmentOut] = Field(default_factory=list, description="Files attached to the work post.")
+    attachments: list[AttachmentOut] = Field(default_factory=list, description="Files attached to the chat post.")
+    mentions: list[UserRef] = Field(
+        default_factory=list, description="Users tagged in the text: `<@id>` (by id) or `@username`."
+    )
+    tagged: list[UserRef] = Field(default_factory=list, description="People/AIs the chat was tagged for.")
+    repeat: dict | None = Field(None, description="How the chat repeats (see POST /admin/chats), or null.")
+    next_copy_at: datetime | None = Field(None, description="When the next repeating copy opens.")
+    close_at: datetime | None = Field(None, description="When the chat closes automatically, or null.")
+    series: ChatRef | None = Field(None, description="For a copy of a repeating chat: the chat it repeats.")
+    copies: list[ChatRef] = Field(default_factory=list, description="For a repeating chat: its latest copies.")
 
 
-class WorkStateOut(BaseModel):
+class ChatStateOut(BaseModel):
     server_time: datetime
-    work: WorkOut
+    chat: ChatOut
     messages: list[MessageOut]
     participants: list[UserRef]
 
@@ -99,7 +116,7 @@ class LastMessageOut(BaseModel):
     created_at: datetime
 
 
-class WorkListItem(BaseModel):
+class ChatListItem(BaseModel):
     id: int
     title: str
     group_id: int
@@ -109,8 +126,12 @@ class WorkListItem(BaseModel):
     last_activity_at: datetime
     message_count: int
     unread_count: int
+    unread_mentions: int = Field(0, description="Unread messages that tag me (+1 for a chat tagged for me, until I open it).")
     joined: bool
     last_message: LastMessageOut | None
+    repeat: dict | None = None
+    next_copy_at: datetime | None = None
+    close_at: datetime | None = None
 
 
 def _check_body(v: str) -> str:
@@ -123,7 +144,7 @@ class MessageIn(BaseModel):
     body: str = Field(default="", description="Markdown text. May be empty when files are attached.")
     attachment_ids: list[int] = Field(
         default_factory=list,
-        description="Ids of files you uploaded to this work with POST /works/{id}/attachments (each used once).",
+        description="Ids of files you uploaded to this chat with POST /chats/{id}/attachments (each used once).",
     )
 
     _v = field_validator("body")(_check_body)
@@ -155,13 +176,13 @@ class SeenOut(BaseModel):
 
 # ---------- updates (what's new) ----------
 class UpdateMessageOut(MessageOut):
-    work_title: str
+    chat_title: str
     is_reply_to_me: bool
     mentions_me: bool = Field(description="The text names me (@username, my name or first name).")
     in_my_thread: bool = Field(description="A reply (at any level) under a comment I wrote or replied to.")
 
 
-class NewWorkOut(BaseModel):
+class NewChatOut(BaseModel):
     id: int
     title: str
     group_id: int
@@ -170,14 +191,15 @@ class NewWorkOut(BaseModel):
     created_at: datetime
     author: UserRef
     body_preview: str
+    mentions_me: bool = Field(False, description="The chat tags me (picked for it, or tagged in its description).")
 
 
 class UpdatesOut(BaseModel):
     cursor: str = Field(description="Pass back as `cursor` next time to get only newer activity.")
-    new_works: list[NewWorkOut]
+    new_chats: list[NewChatOut]
     messages: list[UpdateMessageOut]
-    unread_works: list[WorkListItem] = Field(
-        description="Only filled on the first call (no cursor): works that currently have unread messages."
+    unread_chats: list[ChatListItem] = Field(
+        description="Only filled on the first call (no cursor): chats that currently have unread messages."
     )
 
 
@@ -193,6 +215,7 @@ class MeOut(BaseModel):
 
 class PersonOut(UserRef):
     online: bool
+    active: bool = True
 
 
 # ---------- auth ----------
@@ -265,27 +288,85 @@ class GroupOut(BaseModel):
     description: str
     created_at: datetime
     member_count: int
-    work_count: int
+    chat_count: int
 
 
 class GroupDetailOut(GroupOut):
     members: list[UserRef]
 
 
-class WorkCreate(BaseModel):
+REPEAT_HELP = (
+    'Open a copy "<title> – <date>" every day or week, closing the previous one: '
+    '{"every": "daily"|"weekly", "weekday": 0-6 (0 = Monday, weekly only), "time": "HH:MM", '
+    '"close_after_days": 1-365 (optional, closes each copy)}. null = doesn\'t repeat.'
+)
+
+
+class ChatCreate(BaseModel):
     group_id: int
     title: str = Field(min_length=1, max_length=200)
     body: str = Field(default="", max_length=settings.max_message_length)
     status: Literal["open", "closed"] = "open"
+    tagged_user_ids: list[int] = Field(default_factory=list, description="People/AIs to notify about the chat.")
+    repeat: dict | None = Field(None, description=REPEAT_HELP)
+    close_at: datetime | None = Field(None, description="Close the chat automatically at this time.")
+    close_after_days: int | None = Field(None, ge=1, le=365, description="Or: close it this many days from now.")
 
 
-class WorkUpdate(BaseModel):
+class ChatUpdate(BaseModel):
     title: str | None = Field(default=None, min_length=1, max_length=200)
     body: str | None = Field(default=None, max_length=settings.max_message_length)
     status: Literal["open", "closed"] | None = None
+    tagged_user_ids: list[int] | None = None
+    repeat: dict | None = Field(None, description=REPEAT_HELP + " Send null to stop repeating.")
+    close_at: datetime | None = Field(None, description="null = don't close automatically.")
+    close_after_days: int | None = Field(None, ge=1, le=365)
     attachment_ids: list[int] = Field(
-        default_factory=list, description="Uploads (POST /works/{id}/attachments) to add to the work post."
+        default_factory=list, description="Uploads (POST /chats/{id}/attachments) to add to the chat post."
     )
     remove_attachment_ids: list[int] = Field(
-        default_factory=list, description="Files of the work post to delete."
+        default_factory=list, description="Files of the chat post to delete."
     )
+
+# ---------- search ----------
+class SearchHitOut(BaseModel):
+    type: Literal["chat", "message", "file"]
+    chat_id: int
+    chat_title: str
+    group: GroupRef
+    message_id: int | None = Field(description="The message (for a file: the message it is attached to, if any).")
+    attachment: AttachmentOut | None = None
+    author: UserRef
+    created_at: datetime
+    snippet: str = Field(description="Text around the match; matched words are wrapped in « and ».")
+
+
+class SearchOut(BaseModel):
+    total: int
+    results: list[SearchHitOut]
+
+
+# ---------- audit log ----------
+AuditChatRef = ChatRef
+
+
+class AuditEventOut(BaseModel):
+    id: int
+    at: datetime
+    actor: UserRef | None = Field(description="Who did it (null: unknown user, e.g. a failed login).")
+    via: Literal["web", "api", "auto"] = Field(
+        description="web = website, api = an API key (an AI or a script), auto = done by the server on a schedule."
+    )
+    action: str = Field(description="e.g. message.create, chat.close, login.failed")
+    target_type: str | None
+    target_id: int | None
+    chat: AuditChatRef | None = Field(description="null when the action has no chat or the chat was deleted.")
+    chat_id: int | None
+    group: GroupRef | None
+    details: dict
+    ip: str | None
+
+
+class AuditOut(BaseModel):
+    events: list[AuditEventOut]
+    next_before_id: int | None = Field(description="Pass as before_id to get older events; null at the end.")

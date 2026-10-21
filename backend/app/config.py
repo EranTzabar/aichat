@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     r2_access_key_id: str = ""
     r2_secret_access_key: str = ""
     r2_bucket: str = ""
+    # Audit log: delete entries older than this many days at startup (0 = keep forever).
+    audit_keep_days: int = 0
+    # Repeating chats open their copies in this time zone, e.g. "Asia/Jerusalem" (empty = the server's local time).
+    timezone: str = ""
 
     @property
     def r2_enabled(self) -> bool:

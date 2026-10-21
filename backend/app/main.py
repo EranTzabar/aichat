@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
@@ -11,9 +12,11 @@ from app.config import settings
 from app.db import SessionLocal
 from app.errors import install_error_handlers
 from app.models import User
-from app.routers import admin_groups, admin_users, admin_works, attachments, auth, me, messages, works
+from app.routers import admin_audit, admin_groups, admin_users, admin_chats, attachments, auth, me, messages, search, chats
 from app.security import hash_password
-from app.services.attachments import cleanup_orphans
+from app.services.attachments import backfill_search_text, cleanup_orphans
+from app.services.audit import AuditContext, prune as prune_audit
+from app.services import schedule
 from app.services.avatars import upload_dir
 from app.services.storage import get_storage
 from app import ws
@@ -44,8 +47,15 @@ async def lifespan(_: FastAPI):
     await seed_admin()
     log.info("attachments are stored on %s", "Cloudflare R2" if get_storage().name == "r2" else "disk")
     await cleanup_orphans()
-    async with mcp_server.session_manager.run():
-        yield
+    await backfill_search_text()
+    if pruned := await prune_audit():
+        log.info("deleted %d old audit log entries", pruned)
+    schedules = asyncio.create_task(schedule.loop())
+    try:
+        async with mcp_server.session_manager.run():
+            yield
+    finally:
+        schedules.cancel()
 
 
 app = FastAPI(
@@ -66,9 +76,10 @@ app.add_middleware(
     allow_headers=["*"],
     expose_headers=["Mcp-Session-Id"],
 )
+app.add_middleware(AuditContext)
 install_error_handlers(app)
 
-for r in (auth.router, works.router, messages.router, attachments.router, me.router, admin_users.router, admin_groups.router, admin_works.router, ws.router):
+for r in (auth.router, chats.router, messages.router, attachments.router, search.router, me.router, admin_users.router, admin_groups.router, admin_chats.router, admin_audit.router, ws.router):
     app.include_router(r, prefix=API_PREFIX)
 
 

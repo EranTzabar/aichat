@@ -2,7 +2,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.errors import ApiError, not_found
-from app.models import Group, Message, User, UserGroup, Work
+from app.models import Group, Message, User, UserGroup, Chat
 
 
 async def user_group_ids(db: AsyncSession, user: User) -> set[int]:
@@ -10,35 +10,42 @@ async def user_group_ids(db: AsyncSession, user: User) -> set[int]:
     return set(rows.all())
 
 
-async def ensure_work_access(db: AsyncSession, user: User, work: Work) -> None:
-    if user.is_admin or work.group_id in await user_group_ids(db, user):
+def accessible_chats(user_id: int, is_admin: bool):
+    """A filter on Chat for the chats a user can see (admins see all)."""
+    if is_admin:
+        return True
+    return Chat.group_id.in_(select(UserGroup.group_id).where(UserGroup.user_id == user_id))
+
+
+async def ensure_chat_access(db: AsyncSession, user: User, chat: Chat) -> None:
+    if user.is_admin or chat.group_id in await user_group_ids(db, user):
         return
-    group = await db.get(Group, work.group_id)
-    name = group.name if group else str(work.group_id)
+    group = await db.get(Group, chat.group_id)
+    name = group.name if group else str(chat.group_id)
     raise ApiError(
         403,
         "not_group_member",
-        f"You are not a member of group '{name}', so you can't read or post in work #{work.id}. "
+        f"You are not a member of group '{name}', so you can't read or post in chat #{chat.id}. "
         "Ask the admin to add you.",
     )
 
 
-async def get_accessible_work(db: AsyncSession, user: User, work_id: int) -> Work:
-    work = await db.get(Work, work_id)
-    if work is None:
-        raise not_found("Work", work_id)
-    await ensure_work_access(db, user, work)
-    return work
+async def get_accessible_chat(db: AsyncSession, user: User, chat_id: int) -> Chat:
+    chat = await db.get(Chat, chat_id)
+    if chat is None:
+        raise not_found("Chat", chat_id)
+    await ensure_chat_access(db, user, chat)
+    return chat
 
 
-async def get_accessible_message(db: AsyncSession, user: User, message_id: int) -> tuple[Message, Work]:
+async def get_accessible_message(db: AsyncSession, user: User, message_id: int) -> tuple[Message, Chat]:
     message = await db.get(Message, message_id)
     if message is None:
         raise not_found("Message", message_id)
-    work = await get_accessible_work(db, user, message.work_id)
-    return message, work
+    chat = await get_accessible_chat(db, user, message.chat_id)
+    return message, chat
 
 
-def ensure_open(work: Work) -> None:
-    if work.status != "open":
-        raise ApiError(409, "work_closed", f"Work #{work.id} is closed; it is read-only.")
+def ensure_open(chat: Chat) -> None:
+    if chat.status != "open":
+        raise ApiError(409, "chat_closed", f"Chat #{chat.id} is closed; it is read-only.")

@@ -5,8 +5,8 @@ import { Heart, Paperclip, SendHorizontal, X } from "lucide-react";
 import { Attachments, UploadChips, useUploads } from "@/components/attachments";
 import { Avatar } from "@/components/avatar";
 import { Markdown } from "@/components/markdown";
+import { MentionInput } from "@/components/mention-input";
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
 import { errorMessage } from "@/lib/api";
 import { timeAgo } from "@/lib/format";
 import type { Likes, Message, UserRef } from "@/lib/types";
@@ -47,7 +47,7 @@ export function LikeButton({
 }
 
 export function Composer({
-  workId,
+  chatId,
   placeholder,
   onSend,
   replyTo,
@@ -55,7 +55,7 @@ export function Composer({
   autoFocus,
   me,
 }: {
-  workId: number;
+  chatId: number;
   placeholder: string;
   onSend: (body: string, attachmentIds: number[]) => Promise<void>;
   replyTo?: UserRef | null;
@@ -67,7 +67,7 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
-  const uploads = useUploads(workId);
+  const uploads = useUploads(chatId);
   const fileInput = useRef<HTMLInputElement>(null);
   const canSend = (body.trim() !== "" || uploads.ids.length > 0) && !uploads.busy && !busy;
 
@@ -122,10 +122,10 @@ export function Composer({
         >
           <UploadChips items={uploads.items} onRemove={uploads.remove} />
           <div className="flex items-end gap-1">
-            <Textarea
+            <MentionInput
               value={body}
               autoFocus={autoFocus}
-              onChange={(e) => setBody(e.target.value)}
+              onChange={setBody}
               onPaste={(e) => {
                 const files = Array.from(e.clipboardData.files);
                 if (files.length) {
@@ -140,8 +140,7 @@ export function Composer({
                 }
               }}
               placeholder={placeholder}
-              rows={1}
-              className="max-h-48 min-h-0 resize-none border-0 bg-transparent p-1 shadow-none focus-visible:ring-0 dark:bg-transparent"
+              className="max-h-48 overflow-y-auto p-1 text-base md:text-sm"
             />
             <input
               ref={fileInput}
@@ -162,7 +161,7 @@ export function Composer({
           </div>
         </div>
         <div className="px-2 text-[11px] text-muted-foreground">
-          Enter to send · Shift+Enter for a new line · Markdown supported · Drop or paste files to attach
+          Enter to send · Shift+Enter for a new line · @ to tag someone · Markdown supported · Drop or paste files to attach
         </div>
         {error && <p className="px-2 text-xs text-destructive">{error}</p>}
       </div>
@@ -198,7 +197,7 @@ export function MessageBubble({
   message: Message;
   small?: boolean;
   closed: boolean;
-  /** Ids of the messages in this work; `#id` in the text links to them. */
+  /** Ids of the messages in this chat; `#id` in the text links to them. */
   messageIds?: Set<number>;
   onLike: () => void;
   onReply: () => void;
@@ -219,7 +218,11 @@ export function MessageBubble({
             {message.reply_to && (
               <span className="mr-1 font-semibold text-primary">{message.reply_to.display_name}</span>
             )}
-            {message.body && <Markdown messageIds={messageIds}>{message.body}</Markdown>}
+            {message.body && (
+              <Markdown messageIds={messageIds} mentions={message.mentions}>
+                {message.body}
+              </Markdown>
+            )}
           </div>
           <Attachments items={message.attachments ?? []} />
         </div>

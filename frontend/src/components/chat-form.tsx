@@ -4,32 +4,39 @@ import Link from "next/link";
 import { useRef, useState } from "react";
 import { Paperclip, X } from "lucide-react";
 import { Markdown } from "@/components/markdown";
+import { MentionInput } from "@/components/mention-input";
+import { type AutomationValues, AutomationFields } from "@/components/chat-automation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { api, errorMessage, fileSize, uploadFile } from "@/lib/api";
-import type { Attachment, Group, WorkStatus } from "@/lib/types";
+import type { Attachment, Group, ChatStatus } from "@/lib/types";
 
 const SELECT_CLASS =
   "h-8 w-full rounded-lg border border-input bg-input/30 px-2.5 text-sm text-foreground outline-none " +
   "focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 disabled:opacity-60";
 
-export type WorkFormValues = { group_id: number | ""; title: string; body: string; status: WorkStatus };
-/** Files to upload and attach to the work post, and existing ones to delete. */
-export type WorkFormFiles = { add: File[]; remove: number[] };
+export type ChatFormValues = {
+  group_id: number | "";
+  title: string;
+  body: string;
+  status: ChatStatus;
+  auto: AutomationValues;
+};
+/** Files to upload and attach to the chat post, and existing ones to delete. */
+export type ChatFormFiles = { add: File[]; remove: number[] };
 
-/** Upload the new files to the work and attach them / delete the removed ones, in one PATCH. */
-export async function saveWorkFiles(workId: number, files: WorkFormFiles, fields: object = {}) {
+/** Upload the new files to the chat and attach them / delete the removed ones, in one PATCH. */
+export async function saveChatFiles(chatId: number, files: ChatFormFiles, fields: object = {}) {
   const ids = [];
-  for (const file of files.add) ids.push((await uploadFile(workId, file)).id);
-  await api(`/admin/works/${workId}`, {
+  for (const file of files.add) ids.push((await uploadFile(chatId, file)).id);
+  await api(`/admin/chats/${chatId}`, {
     method: "PATCH",
     json: { ...fields, attachment_ids: ids, remove_attachment_ids: files.remove },
   });
 }
 
-export function WorkForm({
+export function ChatForm({
   initial,
   groups,
   submitLabel,
@@ -37,10 +44,10 @@ export function WorkForm({
   lockGroup,
   existing = [],
 }: {
-  initial: WorkFormValues;
+  initial: ChatFormValues;
   groups: Group[];
   submitLabel: string;
-  onSubmit: (v: WorkFormValues, files: WorkFormFiles) => Promise<void>;
+  onSubmit: (v: ChatFormValues, files: ChatFormFiles) => Promise<void>;
   lockGroup?: boolean;
   existing?: Attachment[];
 }) {
@@ -68,7 +75,7 @@ export function WorkForm({
   if (groups.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        A work belongs to a group.{" "}
+        A chat belongs to a group.{" "}
         <Link href="/admin/groups/new" className="text-primary underline">
           Create a group first
         </Link>
@@ -103,7 +110,7 @@ export function WorkForm({
           <select
             id="status"
             value={v.status}
-            onChange={(e) => setV({ ...v, status: e.target.value as WorkStatus })}
+            onChange={(e) => setV({ ...v, status: e.target.value as ChatStatus })}
             className={SELECT_CLASS}
           >
             <option value="open">Open</option>
@@ -133,12 +140,12 @@ export function WorkForm({
             <Markdown>{v.body || "_Nothing to preview_"}</Markdown>
           </div>
         ) : (
-          <Textarea
+          <MentionInput
             id="body"
-            rows={8}
             value={v.body}
-            onChange={(e) => setV({ ...v, body: e.target.value })}
-            placeholder="What should the group work on together?"
+            onChange={(body) => setV({ ...v, body })}
+            placeholder="What should the group chat on together? Type @ to tag someone."
+            className="min-h-40 w-full rounded-lg border border-input bg-transparent px-2.5 py-2 text-base transition-colors focus:border-ring focus:ring-3 focus:ring-ring/50 md:text-sm dark:bg-input/30"
           />
         )}
       </div>
@@ -190,6 +197,7 @@ export function WorkForm({
           )}
         </div>
       </div>
+      <AutomationFields value={v.auto} onChange={(auto) => setV({ ...v, auto })} />
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button type="submit" disabled={busy}>
         {busy ? "Saving…" : submitLabel}

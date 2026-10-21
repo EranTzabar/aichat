@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import {
   Home,
@@ -13,13 +13,15 @@ import {
   MessagesSquare,
   ArrowLeft,
   LayoutDashboard,
+  Search,
+  ScrollText,
 } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { usePanel } from "@/components/panel";
 import { api } from "@/lib/api";
 import { useAuth, useMe } from "@/lib/auth";
 import { useLive, useLiveEvent } from "@/lib/live";
-import { useWorks } from "@/lib/works";
+import { useChats } from "@/lib/chats";
 import type { Person } from "@/lib/types";
 import { cn } from "@/lib/utils";
 
@@ -28,12 +30,15 @@ function NavLink({
   icon: Icon,
   label,
   badge,
+  tagged,
   exact,
 }: {
   href: string;
   icon?: React.ComponentType<{ className?: string }>;
   label: string;
   badge?: number;
+  /** Unread messages that tag me: shown as a blue "@". */
+  tagged?: number;
   exact?: boolean;
 }) {
   const pathname = usePathname();
@@ -49,6 +54,14 @@ function NavLink({
     >
       {Icon ? <Icon className="size-4 shrink-0" /> : <span className="size-4 shrink-0" />}
       <span className="flex-1 truncate">{label}</span>
+      {!!tagged && (
+        <span
+          className="rounded-full bg-blue-600 px-1.5 text-xs font-semibold text-white dark:bg-blue-500"
+          title={`${tagged} unread message(s) tag you`}
+        >
+          @
+        </span>
+      )}
       {!!badge && (
         <span className="rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">{badge}</span>
       )}
@@ -56,35 +69,82 @@ function NavLink({
   );
 }
 
+function SearchBox() {
+  const router = useRouter();
+  const [q, setQ] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        router.push(q.trim() ? `/search?q=${encodeURIComponent(q.trim())}` : "/search");
+        setQ("");
+      }}
+      className="relative mb-2"
+    >
+      <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Search"
+        aria-label="Search"
+        className="h-8 w-full rounded-lg border border-input bg-transparent pr-12 pl-8 text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring dark:bg-input/30"
+      />
+      <kbd className="pointer-events-none absolute top-1/2 right-2 -translate-y-1/2 rounded border px-1 text-[10px] text-muted-foreground">
+        Ctrl K
+      </kbd>
+    </form>
+  );
+}
+
+/** Ctrl+K (or Cmd+K) opens search from anywhere. */
+function useSearchShortcut() {
+  const router = useRouter();
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        router.push("/search");
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [router]);
+}
+
 function LeftNav() {
   const me = useMe();
   const { logout } = useAuth();
-  const { works } = useWorks();
+  const { chats } = useChats();
   const { connected } = useLive();
   const pathname = usePathname();
   const inAdmin = pathname.startsWith("/admin");
 
   const unreadByGroup = new Map<number, number>();
-  for (const w of works ?? []) unreadByGroup.set(w.group_id, (unreadByGroup.get(w.group_id) ?? 0) + w.unread_count);
-  const totalUnread = (works ?? []).filter((w) => w.joined).reduce((n, w) => n + w.unread_count, 0);
+  for (const w of chats ?? []) unreadByGroup.set(w.group_id, (unreadByGroup.get(w.group_id) ?? 0) + w.unread_count);
+  const totalUnread = (chats ?? []).filter((w) => w.joined).reduce((n, w) => n + w.unread_count, 0);
+  const taggedByGroup = new Map<number, number>();
+  for (const w of chats ?? []) taggedByGroup.set(w.group_id, (taggedByGroup.get(w.group_id) ?? 0) + w.unread_mentions);
+  const totalTagged = (chats ?? []).reduce((n, w) => n + w.unread_mentions, 0);
 
   return (
     <nav className="flex h-full flex-col gap-1 p-3">
       <Link href="/" className="mb-3 flex items-center gap-2 px-3 py-1 text-lg font-bold">
         <MessagesSquare className="size-5 text-primary" /> AIChat
       </Link>
+      {!inAdmin && <SearchBox />}
       {inAdmin ? (
         <>
           <NavLink href="/admin" icon={LayoutDashboard} label="Dashboard" exact />
           <NavLink href="/admin/users" icon={Users} label="Users" />
           <NavLink href="/admin/groups" icon={Shield} label="Groups" />
-          <NavLink href="/admin/works" icon={FolderKanban} label="Works" />
+          <NavLink href="/admin/chats" icon={FolderKanban} label="Chats" />
+          <NavLink href="/admin/audit" icon={ScrollText} label="Audit log" />
           <div className="my-2 border-t" />
           <NavLink href="/" icon={ArrowLeft} label="Back to site" exact />
         </>
       ) : (
         <>
-          <NavLink href="/" icon={Home} label="Home" badge={totalUnread} exact />
+          <NavLink href="/" icon={Home} label="Home" badge={totalUnread} tagged={totalTagged} exact />
           <div className="mt-4 mb-1 px-3 text-xs font-semibold tracking-wide text-muted-foreground uppercase">
             My groups
           </div>
@@ -92,7 +152,13 @@ function LeftNav() {
             <p className="px-3 text-xs text-muted-foreground">You are not in any group yet.</p>
           )}
           {me.groups.map((g) => (
-            <NavLink key={g.id} href={`/groups/${g.id}`} label={g.name} badge={unreadByGroup.get(g.id)} />
+            <NavLink
+              key={g.id}
+              href={`/groups/${g.id}`}
+              label={g.name}
+              badge={unreadByGroup.get(g.id)}
+              tagged={taggedByGroup.get(g.id)}
+            />
           ))}
           <div className="my-2 border-t" />
           <NavLink href="/settings" icon={Settings} label="Settings" />
@@ -161,6 +227,7 @@ function RightPanel() {
 }
 
 export function Shell({ children }: { children: React.ReactNode }) {
+  useSearchShortcut();
   return (
     <div className="mx-auto grid h-screen w-full max-w-[1400px] grid-cols-1 md:grid-cols-[240px_1fr] lg:grid-cols-[240px_1fr_260px]">
       <div className="hidden border-r bg-card/40 md:block">

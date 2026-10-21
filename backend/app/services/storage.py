@@ -91,4 +91,13 @@ def _storage(kind: str) -> Storage:
 
 
 def get_storage() -> Storage:
+    """Where new files go."""
     return _storage("r2" if settings.r2_enabled else "disk")
+
+
+def storage_for(key: str) -> Storage:
+    """Where an existing file is: files uploaded before R2 was configured stay on the local disk."""
+    disk = _storage("disk")
+    if settings.r2_enabled and not disk._path(key).is_file():
+        return _storage("r2")
+    return disk

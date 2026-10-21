@@ -49,14 +49,14 @@ async def login(client, username: str, password: str) -> str:
 
 
 class World:
-    """Admin + group 'Design' + users dana & yoni in it + outsider 'omer' + one open work."""
+    """Admin + group 'Design' + users dana & yoni in it + outsider 'omer' + one open chat."""
 
     admin: dict
     group_id: int
     dana: dict
     yoni: dict
     omer: dict
-    work_id: int
+    chat_id: int
 
 
 @pytest.fixture
@@ -77,8 +77,8 @@ async def world(client) -> World:
             await client.put(f"/admin/users/{uid}/groups", json={"group_ids": [w.group_id]}, headers=h)
         setattr(w, name, {"id": uid, "token": await login(client, name, "secret1")})
     r = await client.post(
-        "/admin/works", json={"group_id": w.group_id, "title": "Plan Q4", "body": "Let's **plan**"}, headers=h
+        "/admin/chats", json={"group_id": w.group_id, "title": "Plan Q4", "body": "Let's **plan**"}, headers=h
     )
     assert r.status_code == 201, r.text
-    w.work_id = r.json()["id"]
+    w.chat_id = r.json()["id"]
     return w

@@ -51,7 +51,7 @@ export default function PermissionsPage() {
         <CardHeader>
           <CardTitle>Groups</CardTitle>
           <CardDescription>
-            {user.display_name} can read and write in the works of these groups. A user can be in several groups.
+            {user.display_name} can read and write in the chats of these groups. A user can be in several groups.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -74,7 +74,7 @@ export default function PermissionsPage() {
         <CardHeader>
           <CardTitle>API access</CardTitle>
           <CardDescription>
-            When on, the user&apos;s API token works and acts exactly as this user (same groups and permissions).
+            When on, the user&apos;s API token chats and acts exactly as this user (same groups and permissions).
           </CardDescription>
         </CardHeader>
         <CardContent>

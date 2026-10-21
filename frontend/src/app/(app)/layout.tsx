@@ -6,7 +6,7 @@ import { PanelProvider } from "@/components/panel";
 import { Shell } from "@/components/shell";
 import { useAuth } from "@/lib/auth";
 import { LiveProvider } from "@/lib/live";
-import { WorksProvider } from "@/lib/works";
+import { ChatsProvider } from "@/lib/chats";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { user, token, loading } = useAuth();
@@ -21,11 +21,11 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   }
   return (
     <LiveProvider token={token}>
-      <WorksProvider>
+      <ChatsProvider>
         <PanelProvider>
           <Shell>{children}</Shell>
         </PanelProvider>
-      </WorksProvider>
+      </ChatsProvider>
     </LiveProvider>
   );
 }

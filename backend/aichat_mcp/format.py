@@ -40,7 +40,7 @@ def me(data: dict) -> str:
 
 
 def _cut(m: dict, max_chars: int) -> dict:
-    """Copy of a message (or work) with its body cut to `max_chars` (0 = whole); `body_length` marks a cut."""
+    """Copy of a message (or chat) with its body cut to `max_chars` (0 = whole); `body_length` marks a cut."""
     if not max_chars or len(m["body"]) <= max_chars:
         return m
     return {**m, "body": m["body"][:max_chars].rstrip(), "body_length": len(m["body"])}
@@ -77,17 +77,17 @@ def find_thread(state: dict, message_id: int) -> dict | None:
     return next((c for c in state["messages"] if contains(c)), None)
 
 
-def slice_work(
+def slice_chat(
     state: dict, *, last_comments: int = 0, before_id: int | None = None, last_replies: int = 0, body_chars: int = 0
 ) -> dict:
-    """Part of a work to save context: the newest `last_comments` comments (older than `before_id`), the newest
+    """Part of a chat to save context: the newest `last_comments` comments (older than `before_id`), the newest
     `last_replies` replies of each comment and reply, bodies cut to `body_chars`. 0 means no limit. Counts of
     what was left out are added, so the AI knows what it hasn't seen."""
     comments = state["messages"]
     older = [c for c in comments if before_id is None or c["id"] < before_id]
     shown = older[-last_comments:] if last_comments else older
     return {
-        "work": _cut(state["work"], body_chars),
+        "chat": _cut(state["chat"], body_chars),
         "messages": [_slice_tree(c, last_replies, body_chars) for c in shown],
         "total_comments": len(comments),
         "hidden_older_comments": len(older) - len(shown),
@@ -101,10 +101,10 @@ def _body(m: dict, read_all: str) -> str:
     return m["body"] + f" ... [cut, {m['body_length']} chars; {read_all} shows it in full]"
 
 
-def message_line(m: dict, *, show_work: bool = False) -> str:
+def message_line(m: dict, *, show_chat: bool = False) -> str:
     who = m["author"]["display_name"]
     to = f" -> {m['reply_to']['display_name']}" if m.get("reply_to") else ""
-    where = f" in work #{m['work_id']}" + (f" \"{m['work_title']}\"" if m.get("work_title") else "") if show_work else ""
+    where = f" in chat #{m['chat_id']}" + (f" \"{m['chat_title']}\"" if m.get("chat_title") else "") if show_chat else ""
     kind = f", reply to #{m['parent_id']}" if m.get("parent_id") else ""
     seen = f" (seen by {len(m['seen_by'])})" if m.get("seen_by") else ""
     head = f"#{m['id']} {who}{to}{where}{kind} [{m['created_at'][:16].replace('T', ' ')}]{_likes(m)}{seen}:"
@@ -122,18 +122,38 @@ def comment_block(c: dict, depth: int = 0) -> list[str]:
     return lines
 
 
+WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def automation(w: dict) -> str:
+    """"Tagged: @yoni · repeats every day at 09:00 · closes 2026-10-25 18:00" for a chat, or ""."""
+    parts = []
+    if w.get("tagged"):
+        parts.append("Tagged: " + ", ".join(f"@{u['username']}" for u in w["tagged"]))
+    if r := w.get("repeat"):
+        day = f"every {WEEKDAYS[r['weekday']]}" if r["every"] == "weekly" else "every day"
+        parts.append(f"repeats {day} at {r['time']} (each copy closes the previous one)")
+    if w.get("series"):
+        parts.append(f"a copy of the repeating chat #{w['series']['id']}")
+    if w.get("close_at"):
+        parts.append(f"closes automatically at {str(w['close_at'])[:16].replace('T', ' ')} UTC")
+    return " · ".join(parts)
+
+
 def thread(state: dict) -> str:
-    """A work as text; `state` is the API's work state, or a slice_work() result."""
-    w = state["work"]
+    """A chat as text; `state` is the API's chat state, or a slice_chat() result."""
+    w = state["chat"]
     shown = state["messages"]
     lines = [
-        f"Work #{w['id']} \"{w['title']}\" [{w['status']}] - group {w['group']['name']} (group {w['group']['id']})"
+        f"Chat #{w['id']} \"{w['title']}\" [{w['status']}] - group {w['group']['name']} (group {w['group']['id']})"
         f" - posted by {w['author']['display_name']}{_likes(w)}",
     ]
+    if about := automation(w):
+        lines.append("  " + about)
     if w["body"] or w.get("attachments"):
-        lines.append(_indent(_body(w, f"get_work({w['id']}, body_chars=0)") + _attachments(w), "  "))
+        lines.append(_indent(_body(w, f"get_chat({w['id']}, body_chars=0)") + _attachments(w), "  "))
     if w["status"] == "closed":
-        lines.append("(This work is closed: read-only, no new messages or likes.)")
+        lines.append("(This chat is closed: read-only, no new messages or likes.)")
     lines.append("")
 
     total = state.get("total_comments", len(shown))
@@ -143,28 +163,28 @@ def thread(state: dict) -> str:
         lines.append(f"Showing {len(shown)} of {total} comments, oldest first.")
         if older := state.get("hidden_older_comments"):
             before = f"before_id={shown[0]['id']}" if shown else "last_comments=0"
-            lines.append(f"{older} older comment(s) not shown: get_work({w['id']}, {before}) shows them.")
+            lines.append(f"{older} older comment(s) not shown: get_chat({w['id']}, {before}) shows them.")
         if state.get("hidden_newer_comments"):
-            lines.append(f"{state['hidden_newer_comments']} newer comment(s) not shown: get_work({w['id']}) shows the newest.")
+            lines.append(f"{state['hidden_newer_comments']} newer comment(s) not shown: get_chat({w['id']}) shows the newest.")
         lines.append("")
     for c in shown:
         lines += comment_block(c)
     lines.append("")
-    lines.append("Reply to a message with reply(message_id, body); add a new comment with post_comment(work_id, body).")
+    lines.append("Reply to a message with reply(message_id, body); add a new comment with post_comment(chat_id, body).")
     return "\n".join(lines)
 
 
-def single_thread(work: dict, comment: dict, focus_id: int) -> str:
-    lines = [f"Work #{work['id']} \"{work['title']}\" [{work['status']}] - thread of comment #{comment['id']}"]
+def single_thread(chat: dict, comment: dict, focus_id: int) -> str:
+    lines = [f"Chat #{chat['id']} \"{chat['title']}\" [{chat['status']}] - thread of comment #{comment['id']}"]
     if focus_id != comment["id"]:
         lines.append(f"(Message #{focus_id} is a reply in this thread.)")
     lines.append("")
     lines += comment_block(comment)
     return "\n".join(lines)
 
-def work_list(items: list[dict]) -> str:
+def chat_list(items: list[dict]) -> str:
     if not items:
-        return "No works found."
+        return "No chats found."
     out = []
     for w in items:
         flags = []
@@ -175,23 +195,45 @@ def work_list(items: list[dict]) -> str:
         if not w["joined"]:
             flags.append("you haven't written here yet")
         flag = f" [{', '.join(flags)}]" if flags else ""
-        out.append(f"Work #{w['id']} \"{w['title']}\" - group {w['group_name']} - {w['message_count']} messages{flag}")
+        out.append(f"Chat #{w['id']} \"{w['title']}\" - group {w['group_name']} - {w['message_count']} messages{flag}")
         if w["last_message"]:
             lm = w["last_message"]
             out.append(f"    last: #{lm['id']} {lm['author']['display_name']}: {lm['body_preview'][:100]}")
     return "\n".join(out)
 
 
-def message_list(items: list[dict], empty: str = "No messages.", show_work: bool = False) -> str:
+def message_list(items: list[dict], empty: str = "No messages.", show_chat: bool = False) -> str:
     if not items:
         return empty
-    return "\n".join(message_line(m, show_work=show_work) for m in items)
+    return "\n".join(message_line(m, show_chat=show_chat) for m in items)
 
 
 def people(items: list[dict]) -> str:
     if not items:
         return "No people found."
     return "\n".join(f"{person(p)}{' - online' if p.get('online') else ''}" for p in items)
+
+
+def search_results(data: dict, offset: int = 0) -> str:
+    hits = data["results"]
+    if not hits:
+        return "Nothing found."
+    out = [f"{data['total']} result(s); showing {offset + 1}-{offset + len(hits)}. Matched words are in «»."]
+    for h in hits:
+        where = f"chat #{h['chat_id']} \"{h['chat_title']}\""
+        who = h["author"]["display_name"]
+        if h["type"] == "chat":
+            head = f"Chat #{h['chat_id']} \"{h['chat_title']}\" (the post) by {who}"
+        elif h["type"] == "message":
+            head = f"#{h['message_id']} in {where} by {who}"
+        else:
+            on = f"message #{h['message_id']}" if h["message_id"] else "the chat post"
+            head = f"📎 {attachment_line(h['attachment'])} on {on} in {where}, by {who}"
+        snippet = " ".join(h["snippet"].split())
+        out.append(f"{head}:\n    {snippet}")
+    if offset + len(hits) < data["total"]:
+        out.append(f"More results: call search again with offset={offset + len(hits)}.")
+    return "\n".join(out)
 
 
 def _for_me(m: dict) -> bool:
@@ -211,13 +253,13 @@ def _tags(m: dict) -> str:
     return f"[{', '.join(tags)}] " if tags else ""
 
 
-def _messages_by_work(items: list[dict]) -> str:
-    works: dict[int, list[dict]] = {}
+def _messages_by_chat(items: list[dict]) -> str:
+    chats: dict[int, list[dict]] = {}
     for m in items:
-        works.setdefault(m["work_id"], []).append(m)
+        chats.setdefault(m["chat_id"], []).append(m)
     blocks = []
-    for work_id, msgs in works.items():
-        lines = [f"Work #{work_id} \"{msgs[0]['work_title']}\" - {len(msgs)} new:"]
+    for chat_id, msgs in chats.items():
+        lines = [f"Chat #{chat_id} \"{msgs[0]['chat_title']}\" - {len(msgs)} new:"]
         lines += [_indent(_tags(m) + message_line(m), "  ") for m in msgs]
         blocks.append("\n".join(lines))
     return "\n\n".join(blocks)
@@ -234,22 +276,23 @@ HANDLE_ALL = (
 
 def updates(data: dict, following: bool = False) -> str:
     parts = []
-    if data.get("unread_works"):
-        parts.append("Works with unread messages:\n" + work_list(data["unread_works"]))
-    if data["new_works"]:
+    if data.get("unread_chats"):
+        parts.append("Chats with unread messages:\n" + chat_list(data["unread_chats"]))
+    if data["new_chats"]:
         parts.append(
-            "New works:\n"
+            "New chats:\n"
             + "\n".join(
-                f"Work #{w['id']} \"{w['title']}\" - group {w['group_name']} - by {w['author']['display_name']}"
+                ("[MENTIONS YOU] " if w.get("mentions_me") else "")
+                + f"Chat #{w['id']} \"{w['title']}\" - group {w['group_name']} - by {w['author']['display_name']}"
                 + (f"\n    {w['body_preview'][:200]}" if w["body_preview"] else "")
-                for w in data["new_works"]
+                for w in data["new_chats"]
             )
         )
     if data["messages"]:
         n = len(data["messages"])
         for_me = sum(1 for m in data["messages"] if _for_me(m))
         parts.append(f"{n} new message(s), {for_me} addressed to you or in your threads.")
-        parts.append(_messages_by_work(data["messages"]))
+        parts.append(_messages_by_chat(data["messages"]))
         parts.append(HANDLE_ALL)
     if not parts:
         parts.append("Nothing new.")

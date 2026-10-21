@@ -92,7 +92,7 @@ export default function GroupDetailPage() {
         <CardHeader>
           <CardTitle className="text-destructive">Danger zone</CardTitle>
           <CardDescription>
-            Deleting the group also deletes its {group.work_count} work(s) with all their messages and likes.
+            Deleting the group also deletes its {group.chat_count} chat(s) with all their messages and likes.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -107,7 +107,7 @@ export default function GroupDetailPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete &quot;{group.name}&quot;?</AlertDialogTitle>
             <AlertDialogDescription>
-              This permanently deletes the group, its {group.work_count} work(s), and all their messages and likes. This
+              This permanently deletes the group, its {group.chat_count} chat(s), and all their messages and likes. This
               can&apos;t be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>

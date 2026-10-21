@@ -55,7 +55,7 @@ function useVisible<T extends Element>() {
 
 // ---------- display ----------
 
-/** The files of a message or work post: an image grid, video and audio players, and file cards. */
+/** The files of a message or chat post: an image grid, video and audio players, and file cards. */
 export function Attachments({ items }: { items: Attachment[] }) {
   const [open, setOpen] = useState<number | null>(null);
   if (items.length === 0) return null;
@@ -385,7 +385,7 @@ export type Upload = {
 };
 
 /** Files being attached before sending: each uploads right away. */
-export function useUploads(workId: number) {
+export function useUploads(chatId: number) {
   const [items, setItems] = useState<Upload[]>([]);
   const update = (key: string, patch: Partial<Upload>) =>
     setItems((list) => list.map((u) => (u.key === key ? { ...u, ...patch } : u)));
@@ -395,7 +395,7 @@ export function useUploads(workId: number) {
       const key = `${Date.now()}-${Math.random()}`;
       const preview = file.type.startsWith("image/") ? URL.createObjectURL(file) : null;
       setItems((list) => [...list, { key, file, preview, progress: 0 }]);
-      uploadFile(workId, file, (p) => update(key, { progress: p })).then(
+      uploadFile(chatId, file, (p) => update(key, { progress: p })).then(
         (attachment) => update(key, { attachment, progress: 1 }),
         (e) => update(key, { error: errorMessage(e) }),
       );

@@ -5,43 +5,43 @@ from tests.conftest import auth
 
 
 async def test_first_call_gives_cursor_and_unread(client, world):
-    await client.post(f"/works/{world.work_id}/messages", json={"body": "hi"}, headers=auth(world.yoni["token"]))
+    await client.post(f"/chats/{world.chat_id}/messages", json={"body": "hi"}, headers=auth(world.yoni["token"]))
     r = await client.get("/me/updates", headers=auth(world.dana["token"]))
     data = r.json()
     assert r.status_code == 200 and data["cursor"].startswith("m")
-    assert [w["id"] for w in data["unread_works"]] == [world.work_id]
-    assert data["messages"] == [] and data["new_works"] == []
+    assert [w["id"] for w in data["unread_chats"]] == [world.chat_id]
+    assert data["messages"] == [] and data["new_chats"] == []
 
 
-async def test_updates_only_others_and_new_works(client, world):
+async def test_updates_only_others_and_new_chats(client, world):
     dana, yoni = auth(world.dana["token"]), auth(world.yoni["token"])
     cursor = (await client.get("/me/updates", headers=dana)).json()["cursor"]
 
-    mine = (await client.post(f"/works/{world.work_id}/messages", json={"body": "mine"}, headers=dana)).json()
+    mine = (await client.post(f"/chats/{world.chat_id}/messages", json={"body": "mine"}, headers=dana)).json()
     theirs = (await client.post(f"/messages/{mine['id']}/replies", json={"body": "answer"}, headers=yoni)).json()
-    new_work = await client.post(
-        "/admin/works", json={"group_id": world.group_id, "title": "Second"}, headers=auth(world.admin["token"])
+    new_chat = await client.post(
+        "/admin/chats", json={"group_id": world.group_id, "title": "Second"}, headers=auth(world.admin["token"])
     )
 
     data = (await client.get("/me/updates", params={"cursor": cursor}, headers=dana)).json()
     assert [m["id"] for m in data["messages"]] == [theirs["id"]]
-    assert data["messages"][0]["is_reply_to_me"] and data["messages"][0]["work_title"] == "Plan Q4"
-    assert [w["id"] for w in data["new_works"]] == [new_work.json()["id"]]
+    assert data["messages"][0]["is_reply_to_me"] and data["messages"][0]["chat_title"] == "Plan Q4"
+    assert [w["id"] for w in data["new_chats"]] == [new_chat.json()["id"]]
 
     again = (await client.get("/me/updates", params={"cursor": data["cursor"]}, headers=dana)).json()
-    assert again["messages"] == [] and again["new_works"] == []
+    assert again["messages"] == [] and again["new_chats"] == []
 
 
 async def test_mentions_and_my_threads_are_flagged(client, world):
     dana, yoni = auth(world.dana["token"]), auth(world.yoni["token"])
-    top = (await client.post(f"/works/{world.work_id}/messages", json={"body": "Topic"}, headers=yoni)).json()
+    top = (await client.post(f"/chats/{world.chat_id}/messages", json={"body": "Topic"}, headers=yoni)).json()
     await client.post(f"/messages/{top['id']}/replies", json={"body": "I'm in"}, headers=dana)
     cursor = (await client.get("/me/updates", headers=dana)).json()["cursor"]
 
     posts = [
         (f"/messages/{top['id']}/replies", "Follow-up for everyone"),  # Yoni answers himself, in Dana's thread
-        (f"/works/{world.work_id}/messages", "What do you think, @dana?"),
-        (f"/works/{world.work_id}/messages", "Dandelions are nice"),
+        (f"/chats/{world.chat_id}/messages", "What do you think, @dana?"),
+        (f"/chats/{world.chat_id}/messages", "Dandelions are nice"),
     ]
     for path, body in posts:
         await client.post(path, json={"body": body}, headers=yoni)
@@ -58,7 +58,7 @@ async def test_wait_collects_a_burst_into_one_batch(client, world):
     async def post_burst():
         await asyncio.sleep(0.3)
         for body in ("one", "two", "three"):
-            await client.post(f"/works/{world.work_id}/messages", json={"body": body}, headers=yoni)
+            await client.post(f"/chats/{world.chat_id}/messages", json={"body": body}, headers=yoni)
             await asyncio.sleep(0.2)
 
     poster = asyncio.create_task(post_burst())
@@ -70,7 +70,7 @@ async def test_wait_collects_a_burst_into_one_batch(client, world):
 async def test_non_member_sees_nothing(client, world):
     omer = auth(world.omer["token"])
     cursor = (await client.get("/me/updates", headers=omer)).json()["cursor"]
-    await client.post(f"/works/{world.work_id}/messages", json={"body": "secret"}, headers=auth(world.dana["token"]))
+    await client.post(f"/chats/{world.chat_id}/messages", json={"body": "secret"}, headers=auth(world.dana["token"]))
     data = (await client.get("/me/updates", params={"cursor": cursor}, headers=omer)).json()
     assert data["messages"] == []
 
@@ -86,7 +86,7 @@ async def test_wait_returns_early_when_someone_posts(client, world):
 
     async def post_later():
         await asyncio.sleep(0.5)
-        await client.post(f"/works/{world.work_id}/messages", json={"body": "ping"}, headers=auth(world.yoni["token"]))
+        await client.post(f"/chats/{world.chat_id}/messages", json={"body": "ping"}, headers=auth(world.yoni["token"]))
 
     started = time.monotonic()
     poster = asyncio.create_task(post_later())

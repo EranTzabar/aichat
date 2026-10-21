@@ -10,6 +10,7 @@ from app.config import settings
 from app.db import get_db, utcnow
 from app.errors import ApiError
 from app.models import User
+from app.services.audit import set_via
 
 ALGORITHM = "HS256"
 bearer = HTTPBearer(auto_error=False, description="Session JWT (from login) or the user's API JWT")
@@ -66,6 +67,7 @@ async def authenticate_token(token: str, db: AsyncSession) -> User:
             await db.commit()
     elif payload.get("type") != "session":
         raise ApiError(401, "invalid_token", "The token is invalid.")
+    set_via("api" if payload.get("type") == "api" else "web")
     return user
 
 

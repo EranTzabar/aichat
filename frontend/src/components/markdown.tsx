@@ -1,8 +1,11 @@
-import type { Root } from "mdast";
+import type { PhrasingContent, Root } from "mdast";
 import { findAndReplace } from "mdast-util-find-and-replace";
 import { useMemo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { Mention } from "@/components/mention";
+import { indexPeople, type PeopleIndex, splitTags, TAG_RE, usePeople } from "@/lib/people";
+import type { UserRef } from "@/lib/types";
 
 const MESSAGE_REF = /(?<![\w&#])#(\d+)\b/g;
 
@@ -23,7 +26,32 @@ function remarkMessageLinks(ids: Set<number>) {
   };
 }
 
-/** Scroll to a message of the current work and put its id in the URL, so the link can be shared. */
+/** Turns tags of known users (`<@7>`, `@username`) into `#u7` links, drawn as blue names. */
+function remarkMentions(index: PeopleIndex) {
+  return () => (tree: Root) => {
+    findAndReplace(
+      tree,
+      [
+        [
+          TAG_RE,
+          (value: string) => {
+            const parts = splitTags(value, index);
+            if (parts.length === 1 && typeof parts[0] === "string") return false;
+            return parts.map(
+              (p): PhrasingContent =>
+                typeof p === "string"
+                  ? { type: "text", value: p }
+                  : { type: "link", url: `#u${p.user.id}`, children: [{ type: "text", value: p.raw }] },
+            );
+          },
+        ],
+      ],
+      { ignore: ["link", "linkReference"] },
+    );
+  };
+}
+
+/** Scroll to a message of the current chat and put its id in the URL, so the link can be shared. */
 export function goToMessage(id: number | string) {
   const el = document.getElementById(`m${id}`);
   if (!el) return false;
@@ -32,11 +60,24 @@ export function goToMessage(id: number | string) {
   return true;
 }
 
-/** Safe markdown: react-markdown never renders raw HTML. `messageIds` turns `#id` of those messages into links. */
-export function Markdown({ children, messageIds }: { children: string; messageIds?: Set<number> }) {
+/**
+ * Safe markdown: react-markdown never renders raw HTML. `messageIds` turns `#id` of those messages into links.
+ * Tags of users show as their names in blue; `mentions` (from the API) adds users to the known ones.
+ */
+export function Markdown({
+  children,
+  messageIds,
+  mentions,
+}: {
+  children: string;
+  messageIds?: Set<number>;
+  mentions?: UserRef[];
+}) {
+  const people = usePeople();
+  const index = useMemo(() => indexPeople(people, mentions), [people, mentions]);
   const plugins = useMemo(
-    () => (messageIds ? [remarkGfm, remarkMessageLinks(messageIds)] : [remarkGfm]),
-    [messageIds],
+    () => [remarkGfm, remarkMentions(index), ...(messageIds ? [remarkMessageLinks(messageIds)] : [])],
+    [messageIds, index],
   );
   return (
     <div className="markdown break-words">
@@ -44,6 +85,9 @@ export function Markdown({ children, messageIds }: { children: string; messageId
         remarkPlugins={plugins}
         components={{
           a: ({ href, children, node: _node, ...props }) => {
+            const tagged = href?.match(/^#u(\d+)$/);
+            const user = tagged && index.byId.get(Number(tagged[1]));
+            if (user) return <Mention user={user} />;
             const ref = href?.match(/^#m(\d+)$/);
             if (ref) {
               return (

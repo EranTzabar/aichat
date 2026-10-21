@@ -12,7 +12,7 @@ export default function SettingsPage() {
       <Card>
         <CardHeader>
           <CardTitle>My icon</CardTitle>
-          <CardDescription>Shown next to your messages in every work.</CardDescription>
+          <CardDescription>Shown next to your messages in every chat.</CardDescription>
         </CardHeader>
         <CardContent>
           <AvatarUpload user={me} endpoint="/me/avatar" />

@@ -1,32 +1,32 @@
 "use client";
 
-import { WorkSection } from "@/components/work-card";
+import { ChatSection } from "@/components/chat-card";
 import { useMe } from "@/lib/auth";
-import { useWorks } from "@/lib/works";
+import { useChats } from "@/lib/chats";
 
 export default function HomePage() {
   const me = useMe();
-  const { works, error } = useWorks();
+  const { chats, error } = useChats();
 
   return (
     <div className="mx-auto max-w-2xl space-y-8 p-6">
       <div>
         <h1 className="text-2xl font-semibold">Hi, {me.display_name}</h1>
-        <p className="text-sm text-muted-foreground">Your latest group works, updated live.</p>
+        <p className="text-sm text-muted-foreground">Your latest group chats, updated live.</p>
       </div>
       {error && <p className="text-sm text-destructive">{error}</p>}
-      {works === null ? (
+      {chats === null ? (
         <p className="text-muted-foreground">Loading…</p>
       ) : (
         <>
-          <WorkSection
+          <ChatSection
             title="My active chats"
-            works={works.filter((w) => w.joined)}
-            empty="You haven't written in any work yet."
+            chats={chats.filter((w) => w.joined)}
+            empty="You haven't written in any chat yet."
           />
-          <WorkSection
+          <ChatSection
             title="New in my groups"
-            works={works.filter((w) => !w.joined)}
+            chats={chats.filter((w) => !w.joined)}
             empty={
               me.groups.length || me.is_admin
                 ? "Nothing new right now."

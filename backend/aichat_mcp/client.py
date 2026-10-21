@@ -1,10 +1,26 @@
 """Thin async client for the AIChat REST API (/api/v1). The MCP tools only talk to AIChat through this."""
+import re
 from pathlib import Path
 from typing import Any
 
 import httpx
 
 DEFAULT_API_URL = "http://localhost:8002/api/v1"
+
+TAG_RE = re.compile(r"<@(\d+)>")
+
+
+def readable_tags(data: Any) -> Any:
+    """Website tags are stored as `<@user id>`; AIs read and write them as `@username` (from each `mentions` list)."""
+    if isinstance(data, list):
+        return [readable_tags(x) for x in data]
+    if not isinstance(data, dict):
+        return data
+    out = {k: readable_tags(v) for k, v in data.items()}
+    if isinstance(out.get("body"), str) and "mentions" in out:
+        names = {u["id"]: u["username"] for u in out["mentions"]}
+        out["body"] = TAG_RE.sub(lambda m: f"@{names.get(int(m[1]), 'unknown')}", out["body"])
+    return out
 
 
 class AIChatError(Exception):
@@ -66,7 +82,7 @@ class AIChatClient:
         except ValueError:
             data = None
         self._raise_for(res, data)
-        return data
+        return readable_tags(data)
 
     async def upload(self, path: str, filename: str, content: Any, content_type: str) -> Any:
         """POST a file as multipart `file`; `content` is bytes or an open binary file."""

@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.db import SessionLocal
 from app.errors import ApiError
-from app.models import User, UserGroup, Work
+from app.models import User, UserGroup, Chat
 from app.security import authenticate_token
 
 log = logging.getLogger(__name__)
@@ -74,8 +74,8 @@ class ConnectionManager:
 manager = ConnectionManager()
 
 
-async def work_audience(db: AsyncSession, group_id: int) -> set[int]:
-    """Users allowed to see works of this group: its members plus all admins."""
+async def chat_audience(db: AsyncSession, group_id: int) -> set[int]:
+    """Users allowed to see chats of this group: its members plus all admins."""
     rows = await db.scalars(
         select(User.id)
         .outerjoin(UserGroup, (UserGroup.user_id == User.id) & (UserGroup.group_id == group_id))
@@ -84,14 +84,14 @@ async def work_audience(db: AsyncSession, group_id: int) -> set[int]:
     return set(rows.all())
 
 
-async def notify_work(db: AsyncSession, work: Work, event: dict, wake: bool = True) -> None:
-    """Push to open sockets and (when `wake`) wake long-poll waiters of everyone who can see the work."""
+async def notify_chat(db: AsyncSession, chat: Chat, event: dict, wake: bool = True) -> None:
+    """Push to open sockets and (when `wake`) wake long-poll waiters of everyone who can see the chat."""
     online, waiting = manager.online_ids(), manager.waiting_ids() if wake else set()
     if not online and not waiting:
         return
-    audience = await work_audience(db, work.group_id)
+    audience = await chat_audience(db, chat.group_id)
     manager.wake(audience & waiting)
-    await manager.send_to(audience & online, {"work_id": work.id, **event})
+    await manager.send_to(audience & online, {"chat_id": chat.id, **event})
 
 
 @router.websocket("/ws")

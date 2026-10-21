@@ -11,13 +11,14 @@ import { NotAllowed } from "@/components/not-allowed";
 import { usePanelGroup } from "@/components/panel";
 import { Composer, LikeButton, MessageBubble } from "@/components/thread";
 import { Badge } from "@/components/ui/badge";
+import { AutomationBadges } from "@/components/chat-automation";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { api, ApiError, errorMessage } from "@/lib/api";
 import { useMe } from "@/lib/auth";
 import { timeAgo } from "@/lib/format";
 import { useLiveEvent } from "@/lib/live";
-import type { LikeStatus, Likes, Message, UserRef, WorkState } from "@/lib/types";
-import { useWorks } from "@/lib/works";
+import type { LikeStatus, Likes, Message, UserRef, ChatState } from "@/lib/types";
+import { useChats } from "@/lib/chats";
 
 // Replies nest up to three levels: comment → reply → reply.
 const MAX_DEPTH = 3;
@@ -49,7 +50,7 @@ function mapTree(list: Message[], fn: (m: Message) => Message): Message[] {
   });
 }
 
-function addMessage(state: WorkState, m: Message): WorkState {
+function addMessage(state: ChatState, m: Message): ChatState {
   if (contains(state.messages, m.id)) return state;
   if (m.parent_id === null) return { ...state, messages: [...state.messages, { ...m, replies: [] }] };
   return {
@@ -60,19 +61,19 @@ function addMessage(state: WorkState, m: Message): WorkState {
   };
 }
 
-function mapMessage(state: WorkState, id: number, fn: (m: Message) => Message): WorkState {
+function mapMessage(state: ChatState, id: number, fn: (m: Message) => Message): ChatState {
   return { ...state, messages: mapTree(state.messages, (m) => (m.id === id ? fn(m) : m)) };
 }
 
-export default function WorkPage() {
-  const workId = Number(useParams<{ id: string }>().id);
-  return <WorkView key={workId} workId={workId} />;
+export default function ChatPage() {
+  const chatId = Number(useParams<{ id: string }>().id);
+  return <ChatView key={chatId} chatId={chatId} />;
 }
 
-function WorkView({ workId }: { workId: number }) {
+function ChatView({ chatId }: { chatId: number }) {
   const me = useMe();
-  const { refresh: refreshWorks } = useWorks();
-  const [state, setState] = useState<WorkState | null>(null);
+  const { refresh: refreshChats } = useChats();
+  const [state, setState] = useState<ChatState | null>(null);
   const [denied, setDenied] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [replyTarget, setReplyTarget] = useState<ReplyTarget | null>(null);
@@ -80,25 +81,25 @@ function WorkView({ workId }: { workId: number }) {
   const report = (e: unknown) => setFlash(errorMessage(e));
   const bottomRef = useRef<HTMLDivElement>(null);
   const readTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
-  usePanelGroup(state?.work.group.id ?? null);
+  usePanelGroup(state?.chat.group.id ?? null);
   const messages = state?.messages;
   const messageIds = useMemo(() => new Set(collectIds(messages ?? [])), [messages]);
 
   const markRead = useCallback(() => {
     clearTimeout(readTimer.current);
     readTimer.current = setTimeout(() => {
-      api(`/works/${workId}/read`, { method: "POST" })
-        .then(refreshWorks)
+      api(`/chats/${chatId}/read`, { method: "POST" })
+        .then(refreshChats)
         .catch(() => {});
     }, 400);
-  }, [workId, refreshWorks]);
+  }, [chatId, refreshChats]);
 
   useEffect(() => {
-    api<WorkState>(`/works/${workId}`)
+    api<ChatState>(`/chats/${chatId}`)
       .then((s) => {
         setState(s);
         markRead();
-        // A shared link like /works/5#m123 opens at that message.
+        // A shared link like /chats/5#m123 opens at that message.
         const target = location.hash.match(/^#m(\d+)$/)?.[1];
         if (target) setTimeout(() => goToMessage(target), 100);
       })
@@ -107,20 +108,20 @@ function WorkView({ workId }: { workId: number }) {
         else setError(errorMessage(e));
       });
     return () => clearTimeout(readTimer.current);
-  }, [workId, markRead]);
+  }, [chatId, markRead]);
 
   useLiveEvent((e) => {
     if (!state) return;
-    const groupId = state.work.group.id;
+    const groupId = state.chat.group.id;
     if (e.type === "access.revoked" && e.group_id === groupId && !me.is_admin) {
-      setDenied(`You were removed from group '${e.group_name}', so you can no longer view or post in this work.`);
+      setDenied(`You were removed from group '${e.group_name}', so you can no longer view or post in this chat.`);
       return;
     }
     if (e.type === "group.deleted" && e.group_id === groupId) {
-      setDenied(`The group '${e.group_name}' was deleted together with its works.`);
+      setDenied(`The group '${e.group_name}' was deleted together with its chats.`);
       return;
     }
-    if (!("work_id" in e) || e.work_id !== workId) return;
+    if (!("chat_id" in e) || e.chat_id !== chatId) return;
     if (e.type === "message.created") {
       setState((s) => s && addMessage(s, e.message));
       markRead();
@@ -128,11 +129,11 @@ function WorkView({ workId }: { workId: number }) {
       const mine = e.user.id === me.id;
       setState((s) => {
         if (!s) return s;
-        if (e.target_type === "work") {
-          const w = s.work;
+        if (e.target_type === "chat") {
+          const w = s.chat;
           return {
             ...s,
-            work: {
+            chat: {
               ...w,
               likes: applyLike(w.likes, e.count, e.user, e.liked),
               liked_by_me: mine ? e.liked : w.liked_by_me,
@@ -158,20 +159,20 @@ function WorkView({ workId }: { workId: number }) {
             ),
           },
       );
-    } else if (e.type === "work.updated") {
-      setState((s) => s && { ...s, work: { ...s.work, ...e.work } });
+    } else if (e.type === "chat.updated") {
+      setState((s) => s && { ...s, chat: { ...s.chat, ...e.chat } });
     }
   });
 
-  async function toggleWorkLike() {
+  async function toggleChatLike() {
     if (!state) return;
-    const liked = !state.work.liked_by_me;
-    const r = await api<LikeStatus>(`/works/${workId}/like`, { method: liked ? "POST" : "DELETE" });
+    const liked = !state.chat.liked_by_me;
+    const r = await api<LikeStatus>(`/chats/${chatId}/like`, { method: liked ? "POST" : "DELETE" });
     setState(
       (s) =>
         s && {
           ...s,
-          work: { ...s.work, likes: applyLike(s.work.likes, r.count, me, r.liked_by_me), liked_by_me: r.liked_by_me },
+          chat: { ...s.chat, likes: applyLike(s.chat.likes, r.count, me, r.liked_by_me), liked_by_me: r.liked_by_me },
         },
     );
   }
@@ -191,9 +192,9 @@ function WorkView({ workId }: { workId: number }) {
   }
 
   async function postComment(body: string, attachmentIds: number[]) {
-    const m = await api<Message>(`/works/${workId}/messages`, { json: { body, attachment_ids: attachmentIds } });
+    const m = await api<Message>(`/chats/${chatId}/messages`, { json: { body, attachment_ids: attachmentIds } });
     setState((s) => s && addMessage(s, m));
-    refreshWorks();
+    refreshChats();
     setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
   }
 
@@ -204,12 +205,12 @@ function WorkView({ workId }: { workId: number }) {
     });
     setState((s) => s && addMessage(s, m));
     setReplyTarget(null);
-    refreshWorks();
+    refreshChats();
   }
 
   async function setStatus(status: "open" | "closed") {
     try {
-      await api(`/admin/works/${workId}`, { method: "PATCH", json: { status } });
+      await api(`/admin/chats/${chatId}`, { method: "PATCH", json: { status } });
     } catch (e) {
       report(e);
     }
@@ -219,8 +220,8 @@ function WorkView({ workId }: { workId: number }) {
   if (error) return <p className="p-6 text-destructive">{error}</p>;
   if (!state) return <p className="p-6 text-muted-foreground">Loading…</p>;
 
-  const { work } = state;
-  const closed = work.status === "closed";
+  const { chat } = state;
+  const closed = chat.status === "closed";
 
   // A message and its replies. A reply to a message on the last level goes next to it, under the same parent.
   function renderMessage(m: Message, depth: number, parentId: number | null): ReactNode {
@@ -243,7 +244,7 @@ function WorkView({ workId }: { workId: number }) {
             {composerHere && replyTarget && (
               <Composer
                 key={`${replyTarget.messageId}-${replyTarget.user.id}`}
-                workId={workId}
+                chatId={chatId}
                 me={me}
                 autoFocus
                 replyTo={replyTarget.user}
@@ -262,14 +263,14 @@ function WorkView({ workId }: { workId: number }) {
     <div className="mx-auto max-w-2xl space-y-4 p-6">
       <article className="rounded-xl border bg-card">
         <header className="flex items-start gap-3 p-4 pb-2">
-          <Avatar user={work.author} size={42} />
+          <Avatar user={chat.author} size={42} />
           <div className="min-w-0 flex-1">
-            <div className="font-semibold">{work.author.display_name}</div>
+            <div className="font-semibold">{chat.author.display_name}</div>
             <div className="text-xs text-muted-foreground">
-              <Link href={`/groups/${work.group.id}`} className="hover:underline">
-                {work.group.name}
+              <Link href={`/groups/${chat.group.id}`} className="hover:underline">
+                {chat.group.name}
               </Link>{" "}
-              · {timeAgo(work.created_at)} · work #{work.id}
+              · {timeAgo(chat.created_at)} · chat #{chat.id}
             </div>
           </div>
           {closed ? (
@@ -281,24 +282,29 @@ function WorkView({ workId }: { workId: number }) {
           )}
         </header>
         <div className="space-y-2 px-4 pb-3">
-          <h1 className="text-xl font-semibold">{work.title}</h1>
-          {work.body && <Markdown messageIds={messageIds}>{work.body}</Markdown>}
-          <Attachments items={work.attachments ?? []} />
+          <h1 className="text-xl font-semibold">{chat.title}</h1>
+          <AutomationBadges chat={chat} />
+          {chat.body && (
+            <Markdown messageIds={messageIds} mentions={chat.mentions}>
+              {chat.body}
+            </Markdown>
+          )}
+          <Attachments items={chat.attachments ?? []} />
         </div>
         <div className="flex items-center gap-2 border-t px-2 py-1">
           <LikeButton
             size="md"
-            likes={work.likes}
-            liked={work.liked_by_me}
+            likes={chat.likes}
+            liked={chat.liked_by_me}
             disabled={closed}
-            onToggle={() => toggleWorkLike().catch(report)}
+            onToggle={() => toggleChatLike().catch(report)}
           />
           <span className="ml-auto pr-2 text-xs text-muted-foreground">
             {countMessages(state.messages)} comments
           </span>
           {me.is_admin && (
             <>
-              <Link href={`/admin/works/${work.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              <Link href={`/admin/chats/${chat.id}`} className={buttonVariants({ variant: "ghost", size: "sm" })}>
                 <Pencil className="size-3.5" /> Edit
               </Link>
               <Button variant="ghost" size="sm" onClick={() => setStatus(closed ? "open" : "closed")}>
@@ -320,7 +326,7 @@ function WorkView({ workId }: { workId: number }) {
 
       {closed && (
         <div className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
-          <Lock className="size-4" /> This work is closed. You can read it, but no new comments or likes.
+          <Lock className="size-4" /> This chat is closed. You can read it, but no new comments or likes.
         </div>
       )}
 
@@ -331,7 +337,7 @@ function WorkView({ workId }: { workId: number }) {
 
       {!closed && (
         <div className="sticky bottom-0 border-t bg-background/95 py-3 backdrop-blur">
-          <Composer workId={workId} me={me} placeholder="Write a comment…" onSend={postComment} />
+          <Composer chatId={chatId} me={me} placeholder="Write a comment…" onSend={postComment} />
         </div>
       )}
       <div ref={bottomRef} />

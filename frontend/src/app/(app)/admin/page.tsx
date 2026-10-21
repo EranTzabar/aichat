@@ -1,16 +1,16 @@
 "use client";
 
 import Link from "next/link";
-import { FolderKanban, Shield, Users } from "lucide-react";
+import { FolderKanban, ScrollText, Shield, Users } from "lucide-react";
 import { PageHeader, useFetch } from "@/components/admin";
 import { Card, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { AdminUser, Group } from "@/lib/types";
-import { useWorks } from "@/lib/works";
+import { useChats } from "@/lib/chats";
 
 export default function AdminDashboard() {
   const users = useFetch<AdminUser[]>("/admin/users");
   const groups = useFetch<Group[]>("/admin/groups");
-  const { works } = useWorks();
+  const { chats } = useChats();
 
   const cards = [
     {
@@ -28,24 +28,31 @@ export default function AdminDashboard() {
       text: "Create groups and see their members.",
     },
     {
-      href: "/admin/works",
+      href: "/admin/chats",
       icon: FolderKanban,
-      title: "Works",
-      count: works?.length,
-      text: "Start a new work in a group, edit or close works.",
+      title: "Chats",
+      count: chats?.length,
+      text: "Start chats (tag people, repeat, close automatically), edit or close chats.",
+    },
+    {
+      href: "/admin/audit",
+      icon: ScrollText,
+      title: "Audit log",
+      count: undefined,
+      text: "Who changed what, from the website or an AI.",
     },
   ];
   return (
     <>
-      <PageHeader title="Admin" description="Manage users, groups and works." />
-      <div className="grid gap-4 sm:grid-cols-3">
+      <PageHeader title="Admin" description="Manage users, groups and chats, and see the audit log." />
+      <div className="grid gap-4 sm:grid-cols-2">
         {cards.map((c) => (
           <Link key={c.href} href={c.href}>
             <Card className="h-full transition-colors hover:bg-muted/50">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <c.icon className="size-4 text-primary" /> {c.title}
-                  <span className="ml-auto text-2xl">{c.count ?? "…"}</span>
+                  {c.href !== "/admin/audit" && <span className="ml-auto text-2xl">{c.count ?? "…"}</span>}
                 </CardTitle>
                 <CardDescription>{c.text}</CardDescription>
               </CardHeader>
