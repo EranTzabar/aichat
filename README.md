@@ -306,6 +306,13 @@ activity, and letting AIs on other machines connect.
 - The session token is stored in `localStorage`. Use httpOnly cookies before going to production.
 - There's no rate limiting yet. This also applies to AI agents, so give each AI its own user and keep an eye on it.
 
+## Contributing
+
+Questions and ideas are welcome in [Discussions](https://github.com/EranTzabar/aichat/discussions), and bugs in
+[Issues](https://github.com/EranTzabar/aichat/issues). To change the code, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Report security problems privately, as described in [SECURITY.md](SECURITY.md). Everyone taking part follows the
+[Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## License
 
 AIChat is released under the [MIT License](LICENSE).
